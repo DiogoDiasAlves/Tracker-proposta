@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Régua — mapa de retenção para páginas de vendas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F6;
+  --card:#FFFFFF;
+  --ink:#0F1626;
+  --ink-2:#33405C;
+  --muted:#66738F;
+  --rule:#D4DAE6;
+  --rule-soft:#E3E8F0;
+
+  --panel:#0E1626;
+  --panel-2:#16213A;
+  --panel-3:#1D2B49;
+  --grid:#25355A;
+  --panel-text:#DCE3F0;
+  --panel-muted:#7E8DAD;
+
+  --cool:#2FBF87;
+  --warm:#E8A33D;
+  --hot:#E8503F;
+  --neutral:#8593B0;
+
+  --display:"Bricolage Grotesque",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --body:"Newsreader",Georgia,"Times New Roman",serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  --rail:76px;
+  --measure:660px;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:18px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--rule-soft) 1px,transparent 1px);
+  background-size:100% 34px;opacity:.55;
+}
+.wrap{position:relative;z-index:1;padding-left:var(--rail)}
+.inner{max-width:var(--measure);margin:0 auto;padding:0 24px}
+.wide{max-width:1120px;margin:0 auto;padding:0 24px}
+
+/* ─────────────── trilho (assinatura) ─────────────── */
+.rail{
+  position:fixed;left:0;top:0;bottom:0;width:var(--rail);z-index:40;
+  background:var(--card);border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;align-items:center;
+  padding:18px 0;gap:0;
+}
+.rail-mark{
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;
+  color:var(--ink);writing-mode:vertical-rl;text-orientation:mixed;
+  margin-bottom:16px;
+}
+.rail-track{flex:1;width:12px;display:flex;flex-direction:column;gap:3px;padding:4px 0}
+.rail-seg{
+  flex:1;background:var(--rule);border-radius:2px;
+  transition:background .35s ease,transform .35s ease;transform-origin:center;
+}
+.rail-seg.seen{background:var(--neutral)}
+.rail-seg.here{background:var(--ink);transform:scaleX(1.7)}
+.rail-read{
+  font-family:var(--mono);font-size:9px;line-height:1.5;color:var(--muted);
+  text-align:center;letter-spacing:.04em;margin-top:14px;padding:0 4px;
+}
+.rail-read strong{display:block;color:var(--ink);font-weight:700;font-size:10px}
+.rail-note{
+  font-family:var(--mono);font-size:8px;color:var(--muted);
+  writing-mode:vertical-rl;text-orientation:mixed;margin-top:14px;letter-spacing:.1em;
+}
+@media(max-width:900px){
+  :root{--rail:0px}
+  .rail{
+    inset:auto 0 auto 0;top:0;bottom:auto;width:100%;height:38px;flex-direction:row;
+    border-right:0;border-bottom:1px solid var(--rule);padding:0 14px;gap:12px;align-items:center;
+  }
+  .rail-mark{writing-mode:horizontal-tb;margin:0;font-size:11px}
+  .rail-track{flex-direction:row;height:6px;width:auto;gap:2px;padding:0}
+  .rail-seg.here{transform:scaleY(2)}
+  .rail-read{margin:0;white-space:nowrap;font-size:9px;text-align:right}
+  .rail-read strong{display:inline;margin-right:6px}
+  .rail-note{display:none}
+  .wrap{padding-top:38px}
+}
+
+/* ─────────────── tipografia ─────────────── */
+h1,h2,h3,.eyebrow,.stat,.tag{font-family:var(--display)}
+.eyebrow{
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 18px;
+}
+h1{
+  font-size:clamp(38px,6.4vw,68px);line-height:.98;letter-spacing:-.035em;
+  font-weight:800;margin:0 0 22px;
+}
+h2{
+  font-size:clamp(27px,3.6vw,38px);line-height:1.06;letter-spacing:-.028em;
+  font-weight:800;margin:0 0 18px;
+}
+h3{font-size:20px;line-height:1.2;letter-spacing:-.015em;font-weight:700;margin:0 0 8px}
+p{margin:0 0 18px}
+.lead{font-size:21px;line-height:1.55;color:var(--ink-2)}
+strong{font-weight:500;color:var(--ink);background:linear-gradient(transparent 62%,rgba(232,163,61,.32) 62%)}
+.mono{font-family:var(--mono)}
+section{padding:82px 0}
+.sec-head{margin-bottom:38px}
+hr.rule{border:0;border-top:1px solid var(--rule);margin:0}
+
+/* ─────────────── hero ─────────────── */
+.hero{padding:76px 0 56px}
+.hero-grid{display:grid;grid-template-columns:1fr 340px;gap:56px;align-items:start;max-width:1120px;margin:0 auto;padding:0 24px}
+@media(max-width:920px){.hero-grid{grid-template-columns:1fr;gap:38px}}
+.hero-note{
+  font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;
+  border-left:2px solid var(--rule);padding-left:14px;margin-top:28px;
+}
+.ribbon-cap{
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);text-align:center;margin-top:12px;
+}
+svg{display:block;max-width:100%}
+
+/* ─────────────── blocos de conteúdo ─────────────── */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule)}
+@media(max-width:820px){.steps{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.steps{grid-template-columns:1fr}}
+.step{background:var(--card);padding:26px 22px}
+.step-n{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--hot);letter-spacing:.1em;margin-bottom:14px}
+.step p{font-size:15px;line-height:1.55;color:var(--muted);margin:0}
+.step code{font-family:var(--mono);font-size:12px;background:var(--paper);padding:1px 5px;border-radius:3px;color:var(--ink-2)}
+
+.matrix{display:grid;grid-template-columns:120px 1fr 1fr;gap:1px;background:var(--rule);border:1px solid var(--rule);font-size:15px}
+.matrix > div{background:var(--card);padding:18px}
+.matrix .mh{background:var(--paper);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+.mcell strong{background:none;display:block;font-family:var(--display);font-size:15px;letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px}
+.mcell p{font-size:14px;line-height:1.5;color:var(--muted);margin:0}
+.mcell.good strong{color:var(--cool)}
+.mcell.bad strong{color:var(--hot)}
+.mcell.warn strong{color:var(--warm)}
+.mcell.dim strong{color:var(--neutral)}
+@media(max-width:700px){
+  .matrix{grid-template-columns:1fr}
+  .matrix .mh{display:none}
+  .mcell{border-top:1px solid var(--rule)}
+}
+
+.rules{border-top:1px solid var(--rule)}
+details.rule-item{border-bottom:1px solid var(--rule)}
+details.rule-item summary{
+  list-style:none;cursor:pointer;padding:20px 0;display:flex;align-items:baseline;gap:16px;
+  font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:-.015em;
+}
+details.rule-item summary::-webkit-details-marker{display:none}
+details.rule-item summary::after{content:"+";margin-left:auto;font-family:var(--mono);font-weight:400;color:var(--muted);font-size:20px}
+details.rule-item[open] summary::after{content:"–"}
+details.rule-item summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.rule-conf{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;padding:3px 7px;border-radius:3px;text-transform:uppercase}
+.c-hi{background:rgba(47,191,135,.16);color:#1B8A5F}
+.c-md{background:rgba(232,163,61,.18);color:#9B6812}
+.c-lo{background:rgba(133,147,176,.2);color:#5A6785}
+.rule-body{padding:0 0 26px;font-size:16px;line-height:1.62;color:var(--ink-2);max-width:620px}
+.rule-body ul{margin:0 0 14px;padding-left:20px}
+.rule-body li{margin-bottom:6px}
+.rule-body .warnline{
+  font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--ink);
+  border-left:2px solid var(--hot);padding:10px 0 10px 14px;margin-top:16px;background:rgba(232,80,63,.05);
+}
+
+.limits{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+@media(max-width:700px){.limits{grid-template-columns:1fr}}
+.limit{background:var(--card);padding:24px}
+.limit h3{font-size:16px;margin-bottom:6px}
+.limit p{font-size:14.5px;line-height:1.55;color:var(--muted);margin:0}
+
+.contract{background:var(--card);border:1px solid var(--rule);padding:32px}
+pre.code{
+  font-family:var(--mono);font-size:13px;line-height:1.75;background:var(--panel);color:var(--panel-text);
+  padding:20px;overflow-x:auto;margin:0 0 22px;border-radius:2px;
+}
+pre.code .at{color:#7FD1A8}
+pre.code .st{color:#E8A33D}
+pre.code .cm{color:#6C7C9E}
+
+.foot{padding:70px 0 90px;text-align:center}
+.foot h2{max-width:16ch;margin:0 auto 20px}
+.foot p{max-width:52ch;margin:0 auto 26px;color:var(--muted);font-size:17px}
+.foot .mono{font-size:12px;color:var(--muted);letter-spacing:.08em}
+
+/* ═══════════════ DASHBOARD ═══════════════ */
+.dash-shell{background:var(--ink);padding:70px 0 78px;position:relative}
+.dash-shell .wide{max-width:1180px}
+.dash-intro{max-width:600px;margin:0 auto 34px;text-align:center;color:#A9B6D0}
+.dash-intro h2{color:#fff;margin-bottom:14px}
+.dash-intro p{font-size:17px;margin:0}
+.dash{
+  background:var(--panel);border:1px solid var(--grid);border-radius:4px;overflow:hidden;
+  font-family:var(--mono);color:var(--panel-text);box-shadow:0 30px 70px -30px rgba(0,0,0,.7);
+}
+.demo-flag{
+  background:rgba(232,163,61,.13);border-bottom:1px solid var(--grid);
+  padding:7px 18px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#E8A33D;
+}
+.toolbar{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:14px 18px;border-bottom:1px solid var(--grid);background:var(--panel-2);
+}
+.tb-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--panel-muted);margin-right:2px}
+.pill{
+  display:flex;background:var(--panel);border:1px solid var(--grid);border-radius:3px;overflow:hidden;
+}
+.pill button{
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:7px 13px;
+  background:transparent;border:0;color:var(--panel-muted);cursor:pointer;transition:.16s;
+}
+.pill button:hover{color:var(--panel-text)}
+.pill button[aria-pressed="true"]{background:var(--panel-3);color:#fff}
+.pill button:focus-visible{outline:2px solid #E8A33D;outline-offset:-2px}
+.tb-page{
+  font-size:12px;color:#fff;background:var(--panel);border:1px solid var(--grid);
+  padding:7px 12px;border-radius:3px;
+}
+.tb-page span{color:var(--panel-muted)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:11px;color:var(--panel-muted)}
+.badge{padding:4px 9px;border-radius:3px;font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.badge.ok{background:rgba(47,191,135,.15);color:var(--cool)}
+.badge.low{background:rgba(232,80,63,.15);color:var(--hot)}
+
+.dash-body{display:grid;grid-template-columns:1fr 268px;gap:1px;background:var(--grid)}
+@media(max-width:900px){.dash-body{grid-template-columns:1fr}}
+.panel-a,.panel-b{background:var(--panel);padding:20px 18px}
+.panel-t{
+  font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--panel-muted);
+  margin-bottom:16px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+}
+.panel-t em{font-style:normal;color:var(--panel-muted)}
+.legend{display:flex;gap:12px;font-size:9px;letter-spacing:.06em;color:var(--panel-muted);margin-top:10px;flex-wrap:wrap}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* mapa de calor */
+.heat{display:flex;flex-direction:column;gap:2px}
+.heat-b{
+  position:relative;border-radius:2px;padding:5px 9px;cursor:pointer;overflow:hidden;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  font-size:10.5px;color:#0E1626;transition:.16s;border:1px solid transparent;
+}
+.heat-b:hover{filter:brightness(1.12)}
+.heat-b[data-sel="1"]{border-color:#fff;box-shadow:0 0 0 1px #fff}
+.heat-b .hn{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heat-b .hv{font-weight:700;font-variant-numeric:tabular-nums;opacity:.82}
+.heat-b:focus-visible{outline:2px solid #fff;outline-offset:1px}
+
+/* tabela */
+.tbl-wrap{background:var(--panel);border-top:1px solid var(--grid);overflow-x:auto}
+table.tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:660px}
+table.tbl th{
+  text-align:right;font-weight:400;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--panel-muted);padding:12px 14px;border-bottom:1px solid var(--grid);white-space:nowrap;
+}
+table.tbl th:first-child,table.tbl td:first-child{text-align:left}
+table.tbl td{padding:10px 14px;text-align:right;border-bottom:1px solid rgba(37,53,90,.45);font-variant-numeric:tabular-nums}
+table.tbl tr{cursor:pointer;transition:background .14s}
+table.tbl tbody tr:hover{background:var(--panel-2)}
+table.tbl tbody tr[data-sel="1"]{background:var(--panel-3)}
+table.tbl tbody tr[data-sel="1"] td:first-child{box-shadow:inset 3px 0 0 #E8A33D}
+.bname{color:#fff}
+.bidx{color:var(--panel-muted);margin-right:8px}
+.dropv{font-weight:700}
+.chip{font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:2px;margin-left:8px;background:rgba(133,147,176,.18);color:var(--panel-muted)}
+
+/* diagnóstico */
+.diag{background:var(--panel-2);border-top:1px solid var(--grid);padding:22px 18px;display:grid;grid-template-columns:1fr 300px;gap:26px}
+@media(max-width:820px){.diag{grid-template-columns:1fr}}
+.verdict{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.verdict b{font-family:var(--display);font-size:22px;letter-spacing:.01em;text-transform:uppercase}
+.verdict .vb{font-size:12px;color:#fff}
+.diag p{font-size:13px;line-height:1.65;color:#A9B6D0;margin:0 0 12px;font-family:var(--mono)}
+.diag .act{font-size:12px;color:#fff;border-left:2px solid #E8A33D;padding-left:12px;line-height:1.6}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--grid);border:1px solid var(--grid)}
+.mini div{background:var(--panel);padding:12px}
+.mini span{display:block;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--panel-muted);margin-bottom:5px}
+.mini b{font-size:19px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums}
+.mini i{font-style:normal;font-size:10px;color:var(--panel-muted);margin-left:4px}
+.dash-cap{
+  text-align:center;font-family:var(--mono);font-size:11px;color:#5F6E8E;
+  margin-top:20px;letter-spacing:.05em;
+}
+.cmp-note{
+  background:rgba(47,191,135,.09);border-top:1px solid var(--grid);padding:14px 18px;
+  font-size:12px;color:#8FD9BA;line-height:1.65;
+}
+.cmp-note b{color:#fff}
+</style>
+</head>
+<body>
+
+<!-- ═══ TRILHO: a ferramenta rodando nesta própria página ═══ -->
+<nav class="rail" aria-label="Sua posição nesta página">
+  <div class="rail-mark">RÉGUA</div>
+  <div class="rail-track" id="railTrack"></div>
+  <div class="rail-read">
+    <strong id="railBlock">bloco 1/9</strong>
+    <span id="railTime">0s nesta página</span>
+  </div>
+  <div class="rail-note">MEDINDO VOCÊ AGORA</div>
+</nav>
+
+<div class="wrap">
+
+<!-- ═══ HERO ═══ -->
+<header class="hero" data-sec="abertura">
+  <div class="hero-grid">
+    <div>
+      <p class="eyebrow">Proposta · Mapa de retenção</p>
+      <h1>Sua página perde 6 de cada 10 leads em um único bloco.</h1>
+      <p class="lead">Em VSL você vê o segundo exato em que largam o vídeo. Em quiz, a pergunta que derruba metade. Em página de vendas, você vê a conversão final e nada mais — e passa três dias reescrevendo a headline quando o problema estava no preço.</p>
+      <p class="lead">A Régua mostra o bloco.</p>
+      <div class="hero-note">
+        O trilho à esquerda está medindo você agora:<br>
+        qual bloco desta página você alcançou e há quanto tempo.<br>
+        É exatamente o que a ferramenta faz nas suas.
+      </div>
+    </div>
+    <div>
+      <svg id="ribbon" viewBox="0 0 300 560" role="img" aria-label="Funil de retenção de uma página de vendas: o afunilamento severo acontece no bloco de oferta"></svg>
+      <p class="ribbon-cap">Página real · 1.000 sessões · onde some</p>
+    </div>
+  </div>
+</header>
+
+<hr class="rule">
+
+<!-- ═══ COMO FUNCIONA ═══ -->
+<section data-sec="como funciona">
+  <div class="wide">
+    <div class="sec-head" style="max-width:600px">
+      <p class="eyebrow">Instalação</p>
+      <h2>Quatro passos, uma vez só</h2>
+      <p style="color:var(--muted);font-size:17px;margin:0">Depois disso nada muda no seu processo. O script observa em silêncio enquanto você roda tráfego como sempre.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-n">01</div>
+        <h3>Nomeie os blocos</h3>
+        <p>Cada seção da página ganha um nome: <code>data-block="oferta"</code>. Você escolhe os nomes e eles aparecem assim no painel.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">02</div>
+        <h3>Cole o script</h3>
+        <p>Uma linha antes do <code>&lt;/body&gt;</code>. Nada muda visualmente. Impacto medido no carregamento: menos de 50ms.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">03</div>
+        <h3>Rode tráfego</h3>
+        <p>Do jeito que você já roda. A coleta começa no primeiro acesso, sem configuração adicional.</p>
+      </div>
+      <div class="step">
+        <div class="step-n">04</div>
+        <h3>Leia o diagnóstico</h3>
+        <p>O painel ordena os blocos pela perda relativa. O primeiro da lista é onde mexer.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div class="dash-shell" data-sec="o painel">
+  <div class="wide">
+    <div class="dash-intro">
+      <p class="eyebrow" style="color:#7E8DAD">O painel</p>
+      <h2>É isto que você abre depois de rodar tráfego</h2>
+      <p>Clique em qualquer bloco. Troque de versão e de dispositivo. Os dados são de uma página real de 11 blocos.</p>
+    </div>
+
+    <div class="dash">
+      <div class="demo-flag">Demonstração · dados ilustrativos de uma oferta real · ferramenta ainda não construída</div>
+
+      <div class="toolbar">
+        <div class="tb-page">oferta-relogio-uk <span>· 11 blocos</span></div>
+        <span class="tb-label">Versão</span>
+        <div class="pill" id="pillVer">
+          <button data-v="v1" aria-pressed="true">v1</button>
+          <button data-v="v2" aria-pressed="false">v2</button>
+          <button data-v="cmp" aria-pressed="false">comparar</button>
+        </div>
+        <span class="tb-label">Dispositivo</span>
+        <div class="pill" id="pillDev">
+          <button data-d="mobile" aria-pressed="true">mobile</button>
+          <button data-d="desktop" aria-pressed="false">desktop</button>
+        </div>
+        <div class="tb-right">
+          <span id="metaSessions">1.000 sessões · 4 dias</span>
+          <span class="badge ok" id="metaBadge">amostra suficiente</span>
+        </div>
+      </div>
+
+      <div class="dash-body">
+        <div class="panel-a">
+          <div class="panel-t"><span>Curva de retenção</span><span id="chartHint">% das sessões que alcançou cada bloco</span></div>
+          <svg id="chart" viewBox="0 0 720 300" role="img" aria-label="Curva de retenção por bloco"></svg>
+          <div class="legend" id="chartLegend"></div>
+        </div>
+        <div class="panel-b">
+          <div class="panel-t"><span>Mapa de calor</span></div>
+          <div class="heat" id="heat"></div>
+          <div class="legend">
+            <span><i style="background:var(--cool)"></i>até 10%</span>
+            <span><i style="background:var(--warm)"></i>10–20%</span>
+            <span><i style="background:var(--hot)"></i>acima de 20%</span>
+            <span><i style="background:var(--neutral)"></i>dobra</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Bloco</th>
+              <th>Chegaram</th>
+              <th>Queda</th>
+              <th>Tempo /100px</th>
+              <th>Reentradas</th>
+              <th>Saída</th>
+              <th>CTA</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="cmp-note" id="cmpNote" hidden></div>
+
+      <div class="diag">
+        <div>
+          <div class="verdict">
+            <b id="vLabel">TRAVA</b>
+            <span class="vb" id="vBlock">bloco 8 · oferta</span>
+          </div>
+          <p id="vText"></p>
+          <div class="act" id="vAct"></div>
+        </div>
+        <div class="mini" id="vMini"></div>
+      </div>
+    </div>
+
+    <p class="dash-cap">Filtros adicionais na versão final: campanha, criativo, origem de tráfego e período.</p>
+  </div>
+</div>
+
+<!-- ═══ MÉTRICAS E REGRAS ═══ -->
+<section data-sec="as métricas">
+  <div class="inner">
+    <div class="sec-head">
+      <p class="eyebrow">Regras de contagem</p>
+      <h2>O que cada número mede — e o que ele não mede</h2>
+      <p style="color:var(--muted);font-size:17px">Quase todo erro de leitura vem de assumir que uma métrica mede algo diferente do que ela mede. As regras abaixo são as regras reais, incluindo onde cada uma falha.</p>
+    </div>
+
+    <div class="rules">
+      <details class="rule-item" open>
+        <summary>Queda relativa <span class="rule-conf c-hi">confiança alta</span></summary>
+        <div class="rule-body">
+          <p>De todo mundo que chegou neste bloco, quanto por cento <em>não</em> avançou para o próximo.</p>
+          <ul>
+            <li>Cálculo: <span class="mono">1 − (chegaram no próximo ÷ chegaram neste)</span></li>
+            <li>Normal por bloco: 5% a 10%. Acima de 20% no meio da página, investigue.</li>
+            <li>O primeiro bloco perde de 20% a 35%. É o filtro do tráfego frio, não um defeito.</li>
+          </ul>
+          <div class="warnline">Por que não usar saída absoluta: o bloco 1 sempre lidera em números brutos, porque todo mundo passa por ele. Ordenar por saída absoluta faz você reescrever o topo da página pra sempre e nunca chegar no problema.</div>
+        </div>
+      </details>
+
+      <details class="rule-item">
+        <summary>Alcance <span class="rule-conf c-hi">confiança alta</span></summary>
+        <div class="rule-body">
+          <p>Quantas sessões efetivamente viram o bloco.</p>
+          <ul>
+            <li>O bloco só conta como visto quando ocupa <strong>metade da tela por meio segundo seguido</strong>.</li>
+            <li>Arrastar a barra de rolagem do topo ao rodapé em um segundo registra <em>zero</em> blocos.</li>
+          </ul>
+          <div class="warnline">Onde falha: no celular, os 2 ou 3 primeiros blocos às vezes cabem juntos na tela e são marcados no mesmo instante. A queda entre eles dá quase zero e isso não significa que o topo está bom. Para o começo da página, olhe tempo e saída.</div>
+        </div>
+      </details>
+
+      <details class="rule-item">
+        <summary>Tempo de atenção <span class="rule-conf c-md">confiança média</span></summary>
+        <div class="rule-body">
+          <p>Quanto tempo o bloco ficou visível na tela da pessoa.</p>
+          <ul>
+            <li>Só conta com a aba <strong>em primeiro plano</strong>. Quem abre a página, vai pro WhatsApp e volta 5 minutos depois não acumula esses 5 minutos.</li>
+            <li>Reentradas somam ao mesmo total.</li>
+            <li>Exibimos a <strong>mediana</strong>, nunca a média — uma aba esquecida aberta por 40 minutos destruiria a média.</li>
+            <li>O valor é ajustado pela altura do bloco. Sem isso, todo bloco longo pareceria interessante.</li>
+          </ul>
+          <div class="warnline">Isso mede tempo de tela, não tempo de leitura. Se a pessoa deixou a página aberta e foi olhar outra coisa, nenhuma tecnologia web percebe. Por isso o tempo nunca decide sozinho — ele serve para qualificar a queda.</div>
+        </div>
+      </details>
+
+      <details class="rule-item">
+        <summary>Reentradas <span class="rule-conf c-hi">confiança alta</span></summary>
+        <div class="rule-body">
+          <p>Quantas vezes, em média, a pessoa voltou para aquele bloco.</p>
+          <ul>
+            <li><span class="mono">1,0 – 1,3</span> — leitura linear, normal.</li>
+            <li><span class="mono">acima de 1,5</span> em preço, oferta ou garantia — dúvida não resolvida, indo e voltando.</li>
+            <li><span class="mono">acima de 1,5</span> em bloco de conteúdo — o texto não ficou claro na primeira passada.</li>
+          </ul>
+          <p style="color:var(--muted);font-size:15px;margin:0">A métrica mais subestimada do painel. Reentrada alta é a assinatura de uma objeção sem resposta.</p>
+        </div>
+      </details>
+
+      <details class="rule-item">
+        <summary>Saída no bloco <span class="rule-conf c-md">confiança média-alta</span></summary>
+        <div class="rule-body">
+          <p>Percentual de quem chegou no bloco e encerrou a sessão ali.</p>
+          <ul>
+            <li>Registra o bloco visível mais profundo no momento em que a aba foi fechada.</li>
+            <li><strong>Quem clicou no CTA e foi para o checkout é excluído da conta</strong> — senão o bloco de oferta apareceria como o pior da página justamente quando estivesse funcionando.</li>
+            <li>Precisão de 90% a 95%.</li>
+          </ul>
+          <div class="warnline">Quando o navegador é encerrado de forma abrupta, a atribuição pode ficar até 10 segundos defasada — no celular, isso pode significar um bloco de diferença. Use como confirmação da queda relativa, não isoladamente.</div>
+        </div>
+      </details>
+
+      <details class="rule-item">
+        <summary>Sessões <span class="rule-conf c-lo">use de forma relativa</span></summary>
+        <div class="rule-body">
+          <ul>
+            <li>Conta quando a página carrega, mesmo que a pessoa saia em um segundo.</li>
+            <li>Recarregar <em>não</em> cria sessão nova. Abrir em duas abas cria duas.</li>
+            <li>Captura de 85% a 95% do tráfego real — sempre para menos, por causa de bloqueadores.</li>
+          </ul>
+          <div class="warnline">Não tente bater este número com o gerenciador de anúncios. Vai dar diferente sempre: o Meta conta cliques, a Régua conta carregamentos, e bloqueadores impedem parte da coleta. Compare bloco contra bloco e versão contra versão.</div>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══ MATRIZ ═══ -->
+<section data-sec="o diagnóstico">
+  <div class="inner">
+    <div class="sec-head">
+      <p class="eyebrow">Como decidir</p>
+      <h2>Tempo e queda, cruzados, dizem o que fazer</h2>
+      <p style="color:var(--muted);font-size:17px">Sozinha, "queda alta" é ambígua: pode ser um bloco que ninguém leu ou um bloco que todo mundo leu e rejeitou. São problemas opostos, com soluções opostas. O painel resolve a ambiguidade cruzando as duas métricas.</p>
+    </div>
+    <div class="matrix">
+      <div class="mh"></div>
+      <div class="mh">Queda baixa</div>
+      <div class="mh">Queda alta</div>
+
+      <div class="mh">Tempo alto</div>
+      <div class="mcell good">
+        <strong>Funciona</strong>
+        <p>Prende e faz avançar. Não mexa. Estude o que faz esse bloco funcionar e replique nos outros.</p>
+      </div>
+      <div class="mcell bad">
+        <strong>Trava</strong>
+        <p>Leram, se interessaram, e alguma coisa fez desistir. Objeção ou confusão. Prioridade máxima de reescrita.</p>
+      </div>
+
+      <div class="mh">Tempo baixo</div>
+      <div class="mcell dim">
+        <strong>Ignorado</strong>
+        <p>Passou batido e não atrapalhou. Corte ou reduza — está diluindo a página sem contribuir.</p>
+      </div>
+      <div class="mcell warn">
+        <strong>Rejeição</strong>
+        <p>Bateram o olho e saíram. Problema de promessa, imagem ou primeira linha. Reescreva o gancho, não o corpo.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══ REGRAS DE USO ═══ -->
+<section data-sec="regras de uso">
+  <div class="inner">
+    <div class="sec-head">
+      <p class="eyebrow">Quatro regras</p>
+      <h2>Quebrar qualquer uma invalida a leitura</h2>
+    </div>
+    <div class="limits">
+      <div class="limit">
+        <h3>Uma alteração por versão</h3>
+        <p>Mudou qualquer coisa, incremente a versão. Se alterar três blocos de uma vez e a conversão subir, você não saberá qual funcionou — e provavelmente um deles piorou sem você perceber.</p>
+      </div>
+      <div class="limit">
+        <h3>Mínimo de 300 sessões</h3>
+        <p>Abaixo disso os números são ruído e o painel avisa. Para detectar diferenças de 10 pontos percentuais com segurança, são necessárias cerca de 400 sessões por versão.</p>
+      </div>
+      <div class="limit">
+        <h3>Olhe o bloco que você mexeu</h3>
+        <p>Com 11 blocos, é praticamente garantido que dois ou três vão "melhorar" ou "piorar" por acaso entre versões. Perseguir essas variações é otimizar ruído.</p>
+      </div>
+      <div class="limit">
+        <h3>Mobile e desktop são páginas diferentes</h3>
+        <p>O comportamento não se parece. Blocos que funcionam no desktop travam no celular por causa da altura. Analise sempre separado — o painel já separa por padrão.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══ LIMITES ═══ -->
+<section data-sec="limites">
+  <div class="inner">
+    <div class="sec-head">
+      <p class="eyebrow">Honestidade</p>
+      <h2>O que a Régua não faz</h2>
+      <p style="color:var(--muted);font-size:17px">Melhor deixar claro antes de você contratar do que depois.</p>
+    </div>
+    <div class="limits">
+      <div class="limit">
+        <h3>Não grava a tela de ninguém</h3>
+        <p>Mede posição de rolagem e tempo. Não há vídeo, não há captura, não há reprodução de sessão.</p>
+      </div>
+      <div class="limit">
+        <h3>Não coleta dado pessoal</h3>
+        <p>Sem nome, e-mail, cookie ou identificação. Números agregados e anônimos, sem IP armazenado.</p>
+      </div>
+      <div class="limit">
+        <h3>Não diz por que o lead saiu</h3>
+        <p>Diz onde. A hipótese do porquê continua sendo sua — mas partindo do bloco certo em vez de partir do zero.</p>
+      </div>
+      <div class="limit">
+        <h3>Não mede fora da página</h3>
+        <p>Se o problema é o checkout ou o preço em si, a página vai parecer ótima e a conversão vai continuar ruim.</p>
+      </div>
+      <div class="limit">
+        <h3>Não substitui teste A/B simultâneo</h3>
+        <p>A comparação é sequencial: v1 num período, v2 no seguinte. Rode em períodos equivalentes — terça contra sábado mistura conteúdo com dia da semana.</p>
+      </div>
+      <div class="limit">
+        <h3>Não funciona em plataforma fechada</h3>
+        <p>Se você não consegue editar o HTML das seções para marcar os blocos, não há como instalar.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══ CONTRATO ═══ -->
+<section data-sec="o que precisamos">
+  <div class="inner">
+    <div class="sec-head">
+      <p class="eyebrow">Da sua parte</p>
+      <h2>Tudo que muda na sua página</h2>
+    </div>
+    <div class="contract">
+<pre class="code"><span class="cm">&lt;!-- nomeie cada seção --&gt;</span>
+&lt;section <span class="at">data-block</span>=<span class="st">"hero"</span>&gt; ... &lt;/section&gt;
+&lt;section <span class="at">data-block</span>=<span class="st">"problema"</span>&gt; ... &lt;/section&gt;
+&lt;section <span class="at">data-block</span>=<span class="st">"oferta"</span>&gt;
+  &lt;button <span class="at">data-cta</span>=<span class="st">"checkout-principal"</span>&gt;Comprar&lt;/button&gt;
+&lt;/section&gt;
+
+<span class="cm">&lt;!-- cole antes do fechamento do body --&gt;</span>
+&lt;script src=<span class="st">"https://regua.app/r.js"</span>
+        <span class="at">data-page</span>=<span class="st">"oferta-relogio-uk"</span>
+        <span class="at">data-version</span>=<span class="st">"1"</span> defer&gt;&lt;/script&gt;</pre>
+      <p style="font-size:15.5px;color:var(--muted);margin:0">Um bloco equivale a uma unidade de argumento: headline, prova social, oferta, garantia. De 10 a 15 por página. Granularidade menor gera ruído; maior perde resolução. Mantenha os nomes estáveis entre versões — renomear quebra a comparação.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FECHAMENTO ═══ -->
+<footer class="foot" data-sec="fechamento">
+  <div class="inner">
+    <h2>Pare de reescrever a headline</h2>
+    <p>O bloco que está derrubando sua oferta provavelmente não é o que você imagina. Em quatro dias de tráfego você descobre qual é.</p>
+    <p class="mono">RÉGUA · MAPA DE RETENÇÃO PARA PÁGINAS DE VENDAS<br>Documento de proposta · dados de demonstração</p>
+  </div>
+</footer>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ═══════════ dados de demonstração ═══════════ */
+var BLOCKS=[
+  {id:'hero',h:720},{id:'problema',h:640},{id:'prova-social',h:880},
+  {id:'solucao',h:700},{id:'como-funciona',h:960},{id:'beneficios',h:540},
+  {id:'comparativo',h:820},{id:'oferta',h:900},{id:'bonus',h:680},
+  {id:'garantia',h:460},{id:'faq-cta',h:1040}
+];
+
+var DATA={
+  mobile:{
+    v1:{n:1000,days:4,conv:1.1,
+      reach:[100,74.2,69.0,65.1,59.8,56.1,52.2,48.6,19.8,18.1,16.6],
+      dwell:[8,14,11,16,19,3,12,41,9,7,22],
+      re:[1.1,1.2,1.1,1.3,1.2,1.0,1.1,2.4,1.1,1.0,1.4],
+      exit:[24.1,6.5,5.2,7.6,5.8,6.5,6.4,57.8,8.0,7.9,61.4],
+      cta:[31,0,0,0,0,0,0,42,0,0,18]},
+    v2:{n:1000,days:4,conv:2.4,
+      reach:[100,74.8,69.5,65.4,60.1,56.4,52.5,48.1,33.1,30.4,28.1],
+      dwell:[8,14,11,16,19,3,12,26,10,8,23],
+      re:[1.1,1.2,1.1,1.3,1.2,1.0,1.1,1.6,1.1,1.0,1.4],
+      exit:[23.6,6.3,5.3,7.3,5.5,6.4,6.2,29.8,7.7,7.6,55.2],
+      cta:[34,0,0,0,0,0,0,89,0,0,27]}
+  },
+  desktop:{
+    v1:{n:268,days:4,conv:1.9,
+      reach:[100,82.1,78.4,74.6,70.5,67.9,64.2,61.2,38.4,35.8,33.2],
+      dwell:[11,18,14,21,24,5,16,33,12,9,28],
+      re:[1.1,1.2,1.1,1.2,1.2,1.0,1.1,1.9,1.1,1.0,1.3],
+      exit:[16.4,4.1,4.5,5.0,3.4,5.1,4.4,35.8,6.2,6.9,58.0],
+      cta:[9,0,0,0,0,0,0,14,0,0,6]},
+    v2:{n:241,days:4,conv:2.8,
+      reach:[100,82.6,78.9,75.0,70.9,68.2,64.5,61.0,46.2,43.1,40.5],
+      dwell:[11,18,14,21,24,5,16,24,13,10,29],
+      re:[1.1,1.2,1.1,1.2,1.2,1.0,1.1,1.4,1.1,1.0,1.3],
+      exit:[16.1,4.0,4.3,4.9,3.3,5.0,4.2,23.1,6.0,6.5,54.4],
+      cta:[11,0,0,0,0,0,0,31,0,0,9]}
+  }
+};
+
+/* ═══════════ helpers ═══════════ */
+var $=function(s){return document.querySelector(s)};
+var NS='http://www.w3.org/2000/svg';
+function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e}
+function drop(r,i){return i>=r.length-1?null:(1-r[i+1]/r[i])*100}
+function per100(d,i){return d[i]/(BLOCKS[i].h/100)}
+function heat(v,i){
+  if(i===0)return'var(--neutral)';
+  if(v===null)return'var(--neutral)';
+  if(v<10)return'var(--cool)';
+  if(v<20)return'var(--warm)';
+  return'var(--hot)';
+}
+function fmt(n,d){return n.toFixed(d===undefined?1:d).replace('.',',')}
+
+/* ═══════════ hero: fita do funil ═══════════ */
+(function(){
+  var svg=$('#ribbon'); if(!svg)return;
+  var r=DATA.mobile.v1.reach,W=300,H=560,cx=150,bh=H/r.length,maxW=190;
+  var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  for(var i=0;i<r.length;i++){
+    var d=drop(r,i);
+    var wt=Math.max(9,r[i]/100*maxW);
+    var wb=Math.max(9,(i<r.length-1?r[i+1]:r[i])/100*maxW);
+    var y0=i*bh,y1=(i+1)*bh-2;
+    var p=el('polygon',{
+      points:(cx-wt/2)+','+y0+' '+(cx+wt/2)+','+y0+' '+(cx+wb/2)+','+y1+' '+(cx-wb/2)+','+y1,
+      fill:heat(d,i),opacity:'.9'
+    });
+    if(!reduce){
+      p.style.opacity='0';
+      p.style.transition='opacity .5s ease '+(i*0.07+0.15)+'s';
+      requestAnimationFrame(function(n){return function(){n.style.opacity='.9'}}(p));
+    }
+    svg.appendChild(p);
+    var lb=el('text',{x:cx+maxW/2+14,y:y0+bh/2+3,'font-family':'JetBrains Mono, monospace','font-size':'9.5',fill:i===7?'#0F1626':'#66738F','font-weight':i===7?'700':'400'});
+    lb.textContent=BLOCKS[i].id;
+    svg.appendChild(lb);
+  }
+  // marca do vazamento
+  var yl=7*bh+bh/2;
+  for(var k=0;k<4;k++){
+    var a=el('path',{d:'M'+(cx+28+k*7)+','+(yl-6+k*4)+' l10,3 l-10,3',stroke:'var(--hot)','stroke-width':'1.4',fill:'none',opacity:String(.7-k*.14)});
+    svg.appendChild(a);
+    var b=el('path',{d:'M'+(cx-28-k*7)+','+(yl-6+k*4)+' l-10,3 l10,3',stroke:'var(--hot)','stroke-width':'1.4',fill:'none',opacity:String(.7-k*.14)});
+    svg.appendChild(b);
+  }
+  var t=el('text',{x:cx,y:H-4,'text-anchor':'middle','font-family':'JetBrains Mono, monospace','font-size':'10',fill:'#E8503F','font-weight':'700'});
+  t.textContent='59% somem aqui';
+  svg.appendChild(t);
+})();
+
+/* ═══════════ dashboard ═══════════ */
+var state={dev:'mobile',ver:'v1',sel:7};
+
+function cur(){return DATA[state.dev][state.ver==='cmp'?'v1':state.ver]}
+
+function renderMeta(){
+  var c=cur();
+  var lbl=c.n.toLocaleString('pt-BR')+' sessões · '+c.days+' dias · conv. '+fmt(c.conv)+'%';
+  if(state.ver==='cmp'){
+    var b=DATA[state.dev].v2;
+    lbl=c.n.toLocaleString('pt-BR')+' vs '+b.n.toLocaleString('pt-BR')+' sessões';
+  }
+  $('#metaSessions').textContent=lbl;
+  var bd=$('#metaBadge');
+  var enough=c.n>=300&&(state.ver!=='cmp'||DATA[state.dev].v2.n>=300);
+  bd.className='badge '+(enough?'ok':'low');
+  bd.textContent=enough?'amostra suficiente':'amostra insuficiente';
+  $('.dash').style.opacity=enough?'1':'.82';
+}
+
+function renderChart(){
+  var svg=$('#chart');while(svg.firstChild)svg.removeChild(svg.firstChild);
+  var W=720,H=300,pl=42,pr=14,pt=12,pb=44;
+  var iw=W-pl-pr,ih=H-pt-pb,n=BLOCKS.length,sw=iw/n;
+  var x=function(i){return pl+i*sw},y=function(v){return pt+ih-(v/100)*ih};
+
+  [0,25,50,75,100].forEach(function(g){
+    svg.appendChild(el('line',{x1:pl,y1:y(g),x2:W-pr,y2:y(g),stroke:'var(--grid)','stroke-width':'1',opacity:g===0?'1':'.55'}));
+    var t=el('text',{x:pl-9,y:y(g)+3.5,'text-anchor':'end','font-family':'JetBrains Mono, monospace','font-size':'9',fill:'#7E8DAD'});
+    t.textContent=g+'%';svg.appendChild(t);
+  });
+
+  function series(r,color,dash,fill){
+    var d='',a='M'+pl+','+y(0);
+    for(var i=0;i<n;i++){
+      var xa=x(i),xb=x(i+1);
+      d+=(i===0?'M':'L')+xa+','+y(r[i])+' L'+xb+','+y(r[i]);
+      a+=' L'+xa+','+y(r[i])+' L'+xb+','+y(r[i]);
+    }
+    a+=' L'+(W-pr)+','+y(0)+' Z';
+    if(fill)svg.appendChild(el('path',{d:a,fill:color,opacity:'.12'}));
+    svg.appendChild(el('path',{d:d,stroke:color,'stroke-width':'2',fill:'none','stroke-dasharray':dash||'none','stroke-linejoin':'round'}));
+  }
+
+  if(state.ver==='cmp'){
+    series(DATA[state.dev].v1.reach,'#7E8DAD','5 4',false);
+    series(DATA[state.dev].v2.reach,'var(--cool)',null,true);
+  }else{
+    series(cur().reach,'#5FA8FF',null,true);
+  }
+
+  // destaque do bloco selecionado
+  svg.appendChild(el('rect',{x:x(state.sel),y:pt,width:sw,height:ih,fill:'#E8A33D',opacity:'.1'}));
+
+  for(var i=0;i<n;i++){
+    var g=el('text',{x:x(i)+sw/2,y:H-26,'text-anchor':'middle','font-family':'JetBrains Mono, monospace','font-size':'8.5',fill:i===state.sel?'#fff':'#7E8DAD','font-weight':i===state.sel?'700':'400'});
+    g.textContent=String(i+1);svg.appendChild(g);
+    if(i===state.sel){
+      var v=el('text',{x:x(i)+sw/2,y:H-12,'text-anchor':'middle','font-family':'JetBrains Mono, monospace','font-size':'8.5',fill:'#E8A33D'});
+      v.textContent=BLOCKS[i].id;svg.appendChild(v);
+    }
+  }
+
+  $('#chartLegend').innerHTML = state.ver==='cmp'
+    ? '<span><i style="background:#7E8DAD"></i>v1</span><span><i style="background:#2FBF87"></i>v2 — só o bloco 8 foi alterado</span>'
+    : '<span><i style="background:#5FA8FF"></i>'+state.ver+' · '+state.dev+'</span>';
+}
+
+function renderHeat(){
+  var c=cur(),box=$('#heat');box.innerHTML='';
+  var hs=BLOCKS.map(function(b){return b.h}),mx=Math.max.apply(null,hs),mn=Math.min.apply(null,hs);
+  BLOCKS.forEach(function(b,i){
+    var d=drop(c.reach,i);
+    var div=document.createElement('div');
+    div.className='heat-b';div.tabIndex=0;
+    div.style.background=heat(d,i);
+    div.style.height=(20+((b.h-mn)/(mx-mn))*22)+'px';
+    if(i===state.sel)div.dataset.sel='1';
+    div.innerHTML='<span class="hn">'+b.id+'</span><span class="hv">'+(d===null?'—':fmt(d,0)+'%')+'</span>';
+    div.onclick=function(){state.sel=i;render()};
+    div.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();state.sel=i;render()}};
+    box.appendChild(div);
+  });
+}
+
+function renderTable(){
+  var c=cur(),tb=$('#tbody');tb.innerHTML='';
+  BLOCKS.forEach(function(b,i){
+    var d=drop(c.reach,i),p=per100(c.dwell,i);
+    var tr=document.createElement('tr');
+    if(i===state.sel)tr.dataset.sel='1';
+    tr.onclick=function(){state.sel=i;render()};
+    tr.innerHTML=
+      '<td><span class="bidx">'+(i+1)+'</span><span class="bname">'+b.id+'</span>'+(i===0?'<span class="chip">dobra</span>':'')+'</td>'+
+      '<td>'+fmt(c.reach[i])+'%</td>'+
+      '<td class="dropv" style="color:'+heat(d,i)+'">'+(d===null?'—':fmt(d)+'%')+'</td>'+
+      '<td>'+fmt(p,1)+'s</td>'+
+      '<td>'+fmt(c.re[i],1)+'</td>'+
+      '<td>'+fmt(c.exit[i])+'%</td>'+
+      '<td>'+(c.cta[i]||'—')+'</td>';
+    tb.appendChild(tr);
+  });
+}
+
+function renderDiag(){
+  var c=cur(),i=state.sel,b=BLOCKS[i];
+  var d=drop(c.reach,i),p=per100(c.dwell,i);
+  var med=BLOCKS.map(function(_,k){return per100(c.dwell,k)}).sort(function(a,z){return a-z})[Math.floor(BLOCKS.length/2)];
+  var hiT=p>=med,hiD=d!==null&&d>=15;
+
+  var verdict,color,text,act;
+  if(i===0){
+    verdict='DOBRA';color='var(--neutral)';
+    text='Primeiro bloco. A queda aqui é o filtro natural do tráfego frio e não deve ser comparada com o restante da página.';
+    act='Referência: 20% a 35% é normal. Acima disso, o problema costuma estar no criativo do anúncio, não na página.';
+  }else if(d===null){
+    verdict='ÚLTIMO';color='var(--neutral)';
+    text='Fim da página. Não há bloco seguinte para calcular queda — a saída aqui é o encerramento esperado da leitura.';
+    act='Acompanhe cliques no CTA final e tempo de permanência.';
+  }else if(hiT&&hiD){
+    verdict='TRAVA';color='var(--hot)';
+    text='Tempo acima da mediana da página ('+fmt(p,1)+'s contra '+fmt(med,1)+'s por 100px) somado a queda de '+fmt(d)+'%. Não é um bloco ignorado: leram com atenção e desistiram. Reentradas em '+fmt(c.re[i],1)+' confirmam idas e voltas.';
+    act='Prioridade máxima. Há uma objeção ou uma confusão aqui. Reescreva e suba como versão nova, sem tocar em mais nada.';
+  }else if(hiT&&!hiD){
+    verdict='FUNCIONA';color='var(--cool)';
+    text='Segura a atenção ('+fmt(p,1)+'s por 100px, acima da mediana de '+fmt(med,1)+'s) e ainda assim entrega '+fmt(100-d)+'% para o bloco seguinte.';
+    act='Não mexa. Estude o que faz este bloco funcionar e aplique nos que travam.';
+  }else if(!hiT&&hiD){
+    verdict='REJEIÇÃO';color='var(--warm)';
+    text='Tempo baixo ('+fmt(p,1)+'s por 100px) com queda de '+fmt(d)+'%. Bateram o olho e saíram, sem ler.';
+    act='O problema está na abertura do bloco — título, imagem ou primeira linha. Reescreva o gancho, não o corpo.';
+  }else{
+    verdict='IGNORADO';color='var(--neutral)';
+    text='Tempo baixo ('+fmt(p,1)+'s por 100px) e queda dentro do normal. Ninguém leu, e isso não atrapalhou o avanço.';
+    act='Candidato a corte. Reduzir este bloco encurta a página sem custo de conversão.';
+  }
+
+  var vl=$('#vLabel');vl.textContent=verdict;vl.style.color=color;
+  $('#vBlock').textContent='bloco '+(i+1)+' · '+b.id;
+  $('#vText').textContent=text;
+  $('#vAct').textContent=act;
+
+  var cmp='';
+  if(state.ver==='cmp'){
+    var a=DATA[state.dev].v1,z=DATA[state.dev].v2;
+    var da=drop(a.reach,i),dz=drop(z.reach,i);
+    cmp='<div><span>queda v1</span><b>'+(da===null?'—':fmt(da)+'%')+'</b></div>'+
+        '<div><span>queda v2</span><b style="color:var(--cool)">'+(dz===null?'—':fmt(dz)+'%')+'</b></div>'+
+        '<div><span>tempo v1 → v2</span><b>'+a.dwell[i]+'→'+z.dwell[i]+'<i>s</i></b></div>'+
+        '<div><span>cta v1 → v2</span><b>'+a.cta[i]+'→'+z.cta[i]+'</b></div>';
+  }else{
+    cmp='<div><span>chegaram</span><b>'+fmt(c.reach[i])+'<i>%</i></b></div>'+
+        '<div><span>queda</span><b style="color:'+color+'">'+(d===null?'—':fmt(d))+'<i>%</i></b></div>'+
+        '<div><span>tempo mediano</span><b>'+c.dwell[i]+'<i>s</i></b></div>'+
+        '<div><span>reentradas</span><b>'+fmt(c.re[i],1)+'</b></div>';
+  }
+  $('#vMini').innerHTML=cmp;
+
+  var note=$('#cmpNote');
+  if(state.ver==='cmp'){
+    var A=DATA[state.dev].v1,Z=DATA[state.dev].v2;
+    note.hidden=false;
+    note.innerHTML='<b>Leitura do teste.</b> Só o bloco <b>oferta</b> foi alterado. A queda nele caiu de <b>'+fmt(drop(A.reach,7))+'%</b> para <b>'+fmt(drop(Z.reach,7))+'%</b> e a conversão da página foi de <b>'+fmt(A.conv)+'%</b> para <b>'+fmt(Z.conv)+'%</b>. O alcance do bloco 8 quase não mudou ('+fmt(A.reach[7])+'% → '+fmt(Z.reach[7])+'%), o que era esperado: nada antes dele foi tocado. É esse detalhe que prova que o ganho veio da alteração e não de variação de tráfego.';
+  }else{
+    note.hidden=true;
+  }
+}
+
+function render(){renderMeta();renderChart();renderHeat();renderTable();renderDiag()}
+
+$('#pillVer').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  state.ver=b.dataset.v;
+  [].forEach.call(this.children,function(x){x.setAttribute('aria-pressed',String(x===b))});
+  render();
+});
+$('#pillDev').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  state.dev=b.dataset.d;
+  [].forEach.call(this.children,function(x){x.setAttribute('aria-pressed',String(x===b))});
+  render();
+});
+render();
+
+/* ═══════════ trilho: a ferramenta medindo esta página ═══════════ */
+(function(){
+  var secs=[].slice.call(document.querySelectorAll('[data-sec]'));
+  var track=$('#railTrack'),segs=[];
+  secs.forEach(function(s,i){
+    var d=document.createElement('div');
+    d.className='rail-seg';d.title=s.dataset.sec;
+    track.appendChild(d);segs.push(d);
+  });
+  var seen=new Set(),here=0;
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      var i=secs.indexOf(e.target);
+      if(e.isIntersecting&&e.intersectionRatio>=0.2){seen.add(i);here=i}
+    });
+    segs.forEach(function(d,i){
+      d.className='rail-seg'+(seen.has(i)?' seen':'')+(i===here?' here':'');
+    });
+    $('#railBlock').textContent='bloco '+(here+1)+'/'+secs.length;
+  },{threshold:[0,.2,.5]});
+  secs.forEach(function(s){io.observe(s)});
+
+  var t0=Date.now(),vis=true;
+  document.addEventListener('visibilitychange',function(){vis=document.visibilityState==='visible'});
+  var acc=0,last=Date.now();
+  setInterval(function(){
+    var now=Date.now();
+    if(vis)acc+=now-last;
+    last=now;
+    var s=Math.floor(acc/1000);
+    $('#railTime').textContent=(s<60?s+'s':Math.floor(s/60)+'m'+(s%60)+'s')+' nesta página';
+  },1000);
+})();
+
+})();
+</script>
+</body>
+</html>
