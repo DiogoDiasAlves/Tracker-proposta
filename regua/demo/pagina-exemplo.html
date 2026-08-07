@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Página de exemplo — instrumentada com a Régua</title>
+<style>
+  body{margin:0;font:17px/1.6 Georgia,serif;color:#111;background:#fff}
+  section{padding:70px 24px;max-width:680px;margin:0 auto;border-bottom:1px solid #eee}
+  section::before{content:attr(data-block);display:block;font:700 10px/1 ui-monospace,monospace;
+                  letter-spacing:.16em;text-transform:uppercase;color:#c00;margin-bottom:18px}
+  h1{font-size:38px;line-height:1.1;margin:0 0 16px}
+  h2{font-size:26px;margin:0 0 14px}
+  .tall{min-height:900px}
+  button{font:600 16px/1 system-ui;padding:14px 26px;background:#111;color:#fff;border:0;border-radius:4px;cursor:pointer}
+  .hud{position:fixed;right:12px;bottom:12px;background:#0E1626;color:#DCE3F0;font:11px/1.5 ui-monospace,monospace;
+       padding:10px 12px;border-radius:4px;max-height:44vh;overflow:auto;z-index:9;min-width:210px}
+  .hud b{color:#E8A33D}
+</style>
+</head>
+<body>
+
+<section data-block="hero">
+  <h1>Uma promessa que cabe em uma linha</h1>
+  <p>Este é o bloco da dobra. Quase todo mundo passa por aqui, e por isso a queda dele nunca deve ser comparada com a do resto da página.</p>
+  <button data-cta="cta-hero">Quero saber mais</button>
+</section>
+
+<section data-block="problema" class="tall">
+  <h2>O problema que a pessoa já sente</h2>
+  <p>Bloco deliberadamente alto, para você ver o efeito da normalização por altura: sem dividir o tempo pela altura renderizada, todo bloco longo pareceria interessante só por ser longo.</p>
+</section>
+
+<section data-block="prova-social">
+  <h2>Prova</h2>
+  <p>Depoimentos, números, imprensa.</p>
+</section>
+
+<section data-block="solucao">
+  <h2>A solução</h2>
+  <p>Onde a promessa vira mecanismo.</p>
+</section>
+
+<section data-block="como-funciona" class="tall">
+  <h2>Como funciona</h2>
+  <p>O passo a passo. Outro bloco alto de propósito.</p>
+</section>
+
+<section data-block="beneficios">
+  <h2>Benefícios</h2>
+  <p>Bloco curto — bom para verificar a regra dos 50%: um bloco baixo nunca ocupa metade da tela, então vale metade da altura dele mesmo.</p>
+</section>
+
+<section data-block="comparativo">
+  <h2>Comparativo</h2>
+  <p>Você contra as alternativas.</p>
+</section>
+
+<section data-block="oferta" class="tall">
+  <h2>A oferta</h2>
+  <p>Preço, condições, o que está incluso. Numa página real este costuma ser o bloco que trava.</p>
+  <button data-cta="checkout-principal">Comprar agora</button>
+</section>
+
+<section data-block="bonus">
+  <h2>Bônus</h2>
+  <p>O que vem junto.</p>
+</section>
+
+<section data-block="garantia">
+  <h2>Garantia</h2>
+  <p>Risco revertido.</p>
+</section>
+
+<section data-block="faq-cta" class="tall">
+  <h2>Perguntas frequentes</h2>
+  <p>Últimas objeções, e o CTA final.</p>
+  <button data-cta="cta-final">Garantir minha vaga</button>
+</section>
+
+<div class="hud" id="hud">carregando…</div>
+<script>
+  // Só para esta página de teste: mostra ao vivo o que o tracker está contando.
+  setInterval(function () {
+    if (!window.regua) return;
+    document.getElementById('hud').innerHTML =
+      '<b>tracker ao vivo</b><br>' + window.regua.debug()
+        .map(function (b) { return (b.visto ? '● ' : '○ ') + b.bloco + ' — ' + b.tempo_s + 's · ' + b.entradas + 'x'; })
+        .join('<br>');
+  }, 500);
+</script>
+<script src="/r.js" data-page="oferta-exemplo" data-version="1" defer></script>
+</body>
+</html>

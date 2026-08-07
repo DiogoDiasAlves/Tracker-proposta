@@ -1,0 +1,12 @@
+{
+  "name": "regua",
+  "version": "1.0.0",
+  "description": "Mapa de retenção por bloco para páginas de vendas",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node server/index.js",
+    "simular": "node tools/simular.js"
+  }
+}
