@@ -30,11 +30,17 @@ Para popular com tráfego sintético e ver o painel com dados:
 node tools/simular.js http://localhost:8787 1200
 ```
 
-Testes da regra de visibilidade do tracker (sem navegador):
+Testes:
 
 ```bash
-node tools/testar-tracker.js
+npm run testar             # regra de visibilidade, com DOM simulado e relógio controlado
+npm run testar:navegador   # tracker em Chrome de verdade, emulando iPhone
 ```
+
+O segundo sobe um Chrome headless, rola a página de exemplo com pausas reais,
+clica no CTA e confere o que chegou ao servidor. É o que prova `sendBeacon`,
+`pagehide` e a geometria de rolagem — coisas que DOM simulado não alcança.
+Ele se ignora sozinho se não achar Chrome; aponte com `CHROME=/caminho`.
 
 ---
 
@@ -198,8 +204,9 @@ server/
 dashboard/          painel (HTML + JS, sem build)
 demo/               página de vendas instrumentada, para teste
 tools/
-  simular.js        tráfego sintético
-  testar-tracker.js testes da regra de visibilidade
+  simular.js          tráfego sintético
+  testar-tracker.js   regra de visibilidade, sem navegador
+  testar-navegador.js tracker em Chrome real, via CDP
 data/regua.db       SQLite — backup é copiar este arquivo
 ```
 

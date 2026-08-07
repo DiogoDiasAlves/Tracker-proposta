@@ -31,7 +31,9 @@ async function boot() {
   const withData = state.pages.filter(p => p.sessions > 0);
   if (!withData.length) return renderEmpty(state.pages);
 
-  state.page = withData[0].key;
+  // Abre na página com mais tráfego, não na mais recente: uma página de teste
+  // com duas sessões não pode ser a primeira coisa que você vê.
+  state.page = withData.reduce((a, b) => (b.sessions > a.sessions ? b : a)).key;
   await loadFacets();
   await refresh();
 }
