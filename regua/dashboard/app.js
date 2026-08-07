@@ -51,6 +51,18 @@ async function refresh() {
   render();
 }
 
+/* Trocar filtro é assíncrono. Sem isto, uma falha de rede deixaria a tela
+   parada exibindo os números do filtro anterior — pior que mostrar erro. */
+function go(p) {
+  Promise.resolve(p).catch(e => {
+    const bar = document.createElement('div');
+    bar.className = 'warnbar';
+    bar.textContent = 'Falha ao carregar: ' + e.message + '. Os números abaixo são da consulta anterior.';
+    const dash = $('.dash');
+    if (dash) dash.prepend(bar); else $('#root').innerHTML = `<div class="empty"><h2>Erro</h2><p>${esc(e.message)}</p></div>`;
+  });
+}
+
 function renderEmpty(pages) {
   const origin = location.origin;
   $('#root').innerHTML = `
@@ -149,19 +161,23 @@ function buildToolbar() {
   const sel = $('#selPage');
   sel.innerHTML = (state.pages || []).filter(p => p.sessions > 0)
     .map(p => `<option value="${esc(p.key)}"${p.key === state.page ? ' selected' : ''}>${esc(p.key)} · ${p.sessions} sessões</option>`).join('');
-  sel.onchange = async () => {
+  sel.onchange = () => go((async () => {
     state.page = sel.value; state.compare = null; state.sel = 0;
     await loadFacets(); await refresh();
-  };
+  })());
 
-  pills('#pillVer', state.facets.versions, state.version, v => { state.version = v; refresh(); });
+  pills('#pillVer', state.facets.versions, state.version, v => {
+    state.version = v;
+    if (state.compare === v) state.compare = null; // comparar consigo mesma não diz nada
+    go(refresh());
+  });
 
   const cmpOpts = ['—', ...state.facets.versions.filter(v => v !== state.version)];
   pills('#pillCmp', cmpOpts, state.compare || '—', v => {
-    state.compare = v === '—' ? null : v; refresh();
+    state.compare = v === '—' ? null : v; go(refresh());
   });
 
-  pills('#pillDev', state.facets.devices, state.device, v => { state.device = v; refresh(); });
+  pills('#pillDev', state.facets.devices, state.device, v => { state.device = v; go(refresh()); });
 }
 
 function pills(sel, opts, active, on) {
@@ -196,23 +212,32 @@ function renderChart(m) {
     t.textContent = g + '%'; svg.appendChild(t);
   }
 
-  const series = (blocks, color, dash, fill) => {
-    let d = '', a = `M${pl},${y(0)}`;
-    blocks.forEach((b, i) => {
-      const xa = x(i), xb = x(i + 1);
-      d += `${i === 0 ? 'M' : 'L'}${xa},${y(b.reach)} L${xb},${y(b.reach)}`;
-      a += ` L${xa},${y(b.reach)} L${xb},${y(b.reach)}`;
+  /* Recebe valores já alinhados ao eixo, com buraco onde o bloco não existe
+     naquela versão. Indexar por posição desalinharia as curvas assim que uma
+     versão ganhasse ou perdesse um bloco. */
+  const series = (vals, color, dash, fill) => {
+    let d = '', open = false;
+    vals.forEach((v, i) => {
+      if (v === null || v === undefined) { open = false; return; }
+      d += `${open ? 'L' : 'M'}${x(i)},${y(v)} L${x(i + 1)},${y(v)}`;
+      open = true;
     });
-    a += ` L${W - pr},${y(0)} Z`;
-    if (fill) svg.appendChild(el('path', { d: a, fill: color, opacity: '.12' }));
+    if (fill) {
+      let a = `M${pl},${y(0)}`;
+      vals.forEach((v, i) => { if (v !== null && v !== undefined) a += ` L${x(i)},${y(v)} L${x(i + 1)},${y(v)}`; });
+      a += ` L${W - pr},${y(0)} Z`;
+      svg.appendChild(el('path', { d: a, fill: color, opacity: '.12' }));
+    }
     svg.appendChild(el('path', { d, stroke: color, 'stroke-width': '2', fill: 'none', 'stroke-dasharray': dash || 'none', 'stroke-linejoin': 'round' }));
   };
 
+  const reachOf = m.blocks.map(b => b.reach);
   if (state.compare) {
-    series(state.data.a.blocks, '#7E8DAD', '5 4', false);
-    series(state.data.b.blocks, 'var(--cool)', null, true);
+    const other = new Map(state.data.b.blocks.map(z => [z.block, z]));
+    series(reachOf, '#7E8DAD', '5 4', false);
+    series(m.blocks.map(b => (other.has(b.block) ? other.get(b.block).reach : null)), 'var(--cool)', null, true);
   } else {
-    series(m.blocks, '#5FA8FF', null, true);
+    series(reachOf, '#5FA8FF', null, true);
   }
 
   svg.appendChild(el('rect', { x: x(state.sel), y: pt, width: sw, height: ih, fill: '#E8A33D', opacity: '.1' }));

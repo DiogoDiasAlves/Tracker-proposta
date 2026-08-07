@@ -26,11 +26,19 @@ const BLOCKS = [
 const rand = (a, b) => a + Math.random() * (b - a);
 const jitter = v => Math.max(1, Math.round(v * rand(.55, 1.6)));
 
-async function post(body) {
+/* Tráfego real vem de milhares de IPs; esta bancada vem de um só e bate no
+   limite de vazão do servidor. Recuar e repetir é o comportamento correto —
+   o limite está certo, quem está fora da curva é o simulador. */
+async function post(body, tentativa = 0) {
   const r = await fetch(URL_BASE + '/e', {
     method: 'POST', body: JSON.stringify(body),
     headers: { 'content-type': 'text/plain' },
   });
+  if (r.status === 429) {
+    if (tentativa > 12) throw new Error('limite de vazão persistente');
+    await new Promise(s => setTimeout(s, 250 * (tentativa + 1)));
+    return post(body, tentativa + 1);
+  }
   if (!r.ok && r.status !== 204) throw new Error('ingest falhou: ' + r.status + ' ' + await r.text());
 }
 

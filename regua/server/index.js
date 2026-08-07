@@ -23,6 +23,47 @@ const TYPES = {
 // GIF transparente de 1px, para conversão em páginas que não rodam JS.
 const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 
+/* ── limite de vazão ──────────────────────────────────────────────────
+   /e aceita qualquer origem — é o que um tracker instalado em domínio de
+   terceiro exige. Sem limite, qualquer um infla os números da sua página.
+
+   A promessa de não guardar IP continua de pé: o endereço é reduzido a um
+   número com um sal aleatório do processo, mora só na memória e desaparece
+   quando o servidor reinicia. Nada disso encosta no banco.
+
+   Os limites são folgados de propósito. Operadoras de celular colocam milhares
+   de assinantes atrás de um mesmo IP: apertar aqui descartaria visitante real e
+   subcontaria em silêncio, que é exatamente o erro que a proposta promete não
+   cometer. Uma sessão gasta de 2 a 6 requisições, então 60/s sustentados de um
+   único endereço já é implausível para uma página só — mas segura uma enxurrada. */
+const SALT = Math.random().toString(36);
+const buckets = new Map();
+const CAP = 600, REFILL = 60;
+
+function bucketKey(req) {
+  const ip = req.socket.remoteAddress || '?';
+  let h = 0;
+  const s = SALT + ip;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return h;
+}
+
+function allow(req) {
+  const k = bucketKey(req), now = Date.now();
+  let b = buckets.get(k);
+  if (!b) { b = { t: CAP, at: now }; buckets.set(k, b); }
+  b.t = Math.min(CAP, b.t + ((now - b.at) / 1000) * REFILL);
+  b.at = now;
+  if (b.t < 1) return false;
+  b.t -= 1;
+  return true;
+}
+
+setInterval(() => {
+  const cut = Date.now() - 600000;
+  for (const [k, b] of buckets) if (b.at < cut) buckets.delete(k);
+}, 300000).unref();
+
 function send(res, status, body, type = 'application/json; charset=utf-8', extra = {}) {
   res.writeHead(status, { 'content-type': type, 'access-control-allow-origin': '*', ...extra });
   res.end(body);
@@ -69,6 +110,7 @@ const server = createServer(async (req, res) => {
 
   // ── coleta ──────────────────────────────────────────────────────────
   if (path === '/e' && req.method === 'POST') {
+    if (!allow(req)) return send(res, 429, '{"erro":"excesso de requisições"}');
     try {
       ingest(db, await readBody(req));
       return send(res, 204, '');

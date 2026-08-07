@@ -131,7 +131,9 @@ como o pior da página justamente quando estivesse funcionando.
 
 ### Sessões — use de forma relativa
 Conta quando a página carrega. Recarregar **não** cria sessão nova; abrir em duas
-abas cria duas (é a semântica do `sessionStorage`, onde o id vive).
+abas cria duas (é a semântica do `sessionStorage`, onde o id vive). O acumulado
+de cada bloco também mora ali, então um F5 no meio da leitura continua somando de
+onde parou em vez de recomeçar do zero.
 
 > **Não tente bater este número com o gerenciador de anúncios.** Vai dar diferente
 > sempre: o Meta conta cliques, a Régua conta carregamentos, e bloqueadores
@@ -210,7 +212,24 @@ ordem ou perdido não corrompe nada: o servidor sobrescreve em vez de somar.
 PORT=8787 REGUA_DB=/var/lib/regua/regua.db node server/index.js
 ```
 
-Atrás de um proxy com TLS (Caddy resolve em duas linhas). O `/e` responde a
-qualquer origem — é o comportamento necessário para um tracker instalado em
-domínios de terceiros. Backup: copie `regua.db` (e os arquivos `-wal`/`-shm`, ou
-rode `sqlite3 regua.db ".backup"`).
+Atrás de um proxy com TLS (Caddy resolve em duas linhas). Backup: copie
+`regua.db` (e os arquivos `-wal`/`-shm`, ou rode `sqlite3 regua.db ".backup"`).
+
+**Proteja o painel.** `/` e `/api/*` expõem os números de conversão das suas
+ofertas e não têm autenticação — o servidor assume que só `/e`, `/c` e `/r.js`
+ficam abertos. Feche o resto no proxy:
+
+```
+regua.seudominio.com {
+  @publico path /e /c /c.gif /r.js
+  handle @publico { reverse_proxy localhost:8787 }
+  handle { basic_auth { diogo <hash> }; reverse_proxy localhost:8787 }
+}
+```
+
+O `/e` responde a qualquer origem — é o comportamento necessário para um tracker
+instalado em domínios de terceiros. Ele tem limite de vazão por endereço (600 de
+folga, 60/s sustentados), calibrado alto de propósito: apertar mais descartaria
+visitante real vindo de operadora de celular, onde milhares de assinantes
+compartilham um IP. O endereço é reduzido a um número com sal aleatório, vive só
+na memória e nunca é gravado.

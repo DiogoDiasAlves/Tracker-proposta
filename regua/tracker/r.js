@@ -46,8 +46,36 @@
   var isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
                  (matchMedia('(pointer: coarse)').matches && innerWidth < 1024);
 
-  /* ── estado dos blocos ─────────────────────────────────────────────── */
+  /* ── estado ──────────────────────────────────────────────────────────
+     Guardado em sessionStorage junto com o id. "Recarregar não cria sessão
+     nova" só é verdade se o acumulado sobreviver ao reload: o servidor
+     sobrescreve totais, então voltar zerado apagaria a leitura anterior. E o
+     contador de lotes precisa continuar de onde parou, senão o servidor
+     descarta tudo que vier depois do F5 como lote atrasado.                */
+  var STATE_KEY = '_rg_st';
   var blocks = [];
+  var ctaClicks = [];
+  var converted = 0;
+  var exitViaCta = false;
+  var seq = 0;
+
+  function loadState() {
+    try { return JSON.parse(sessionStorage.getItem(STATE_KEY) || 'null'); }
+    catch (e) { return null; }
+  }
+  function saveState() {
+    try {
+      var b = {};
+      for (var i = 0; i < blocks.length; i++) {
+        var x = blocks[i];
+        if (x.seen || x.dwell) b[x.id] = { t: x.dwell, e: x.entries, s: x.seen ? 1 : 0 };
+      }
+      sessionStorage.setItem(STATE_KEY, JSON.stringify({
+        q: seq, b: b, c: ctaClicks, cv: converted, x: exitViaCta ? 1 : 0
+      }));
+    } catch (e) { /* cota cheia ou modo privado: segue sem persistir */ }
+  }
+
   function collect() {
     var nodes = document.querySelectorAll('[data-block]');
     blocks = [];
@@ -68,6 +96,22 @@
   collect();
   if (!blocks.length) console.warn('[regua] nenhum [data-block] encontrado em ' + PAGE);
 
+  (function restore() {
+    var s = loadState();
+    if (!s) return;
+    seq = s.q || 0;
+    ctaClicks = s.c || [];
+    converted = s.cv || 0;
+    exitViaCta = !!s.x;
+    for (var i = 0; i < blocks.length; i++) {
+      var saved = s.b && s.b[blocks[i].id];
+      if (!saved) continue;
+      blocks[i].dwell = saved.t || 0;
+      blocks[i].entries = saved.e || 0;
+      blocks[i].seen = !!saved.s;
+    }
+  })();
+
   /* Regra de visibilidade da proposta: o bloco conta quando ocupa metade da
      tela. Blocos baixos nunca chegariam lá, então vale também metade da altura
      do próprio bloco — senão um bloco de 200px seria invisível para sempre. */
@@ -78,10 +122,6 @@
     if (shown <= 0) return false;
     return shown >= COVER * vh || shown >= COVER * r.height;
   }
-
-  var ctaClicks = [];
-  var converted = 0;
-  var exitViaCta = false;
 
   function tick() {
     if (document.visibilityState !== 'visible') return; // só em primeiro plano
@@ -133,14 +173,15 @@
         }
       } catch (e) { /* href não parseável: segue sem atribuição */ }
     }
-    flush(false);
+    // Beacon, não fetch: se o CTA é um link, a navegação começa agora e um
+    // fetch pendente morre com a página — o clique nunca chegaria.
+    flush(false, true);
   }, true);
 
   /* ── envio ──────────────────────────────────────────────────────────
      O payload carrega totais acumulados, não deltas. Isso torna cada envio
      idempotente: lote duplicado, fora de ordem ou perdido não corrompe nada,
      porque o servidor sobrescreve em vez de somar. */
-  var seq = 0;
   var sentInit = false;
 
   function payload(final) {
@@ -198,12 +239,13 @@
     } catch (e) { return null; }
   }
 
-  function flush(final) {
+  function flush(final, beacon) {
     var body = JSON.stringify(payload(final));
+    saveState();
     var url = ENDPOINT + '/e';
     // text/plain evita o preflight de CORS: o beacon de saída não tem tempo
     // para um OPTIONS de ida e volta.
-    if (final && navigator.sendBeacon) {
+    if ((final || beacon) && navigator.sendBeacon) {
       navigator.sendBeacon(url, new Blob([body], { type: 'text/plain;charset=UTF-8' }));
       return;
     }
@@ -221,19 +263,27 @@
   });
   addEventListener('pagehide', function () { flush(true); });
 
-  // Blocos que só existem depois de algum JS da página rodar.
+  /* Blocos que só existem depois de algum JS da página rodar.
+     Com debounce: cronômetro, chat e carrossel mexem no DOM continuamente, e
+     um querySelectorAll por mutação custaria mais que todo o resto do script. */
   if (window.MutationObserver) {
+    var rescanPending = false;
     var mo = new MutationObserver(function () {
-      if (document.querySelectorAll('[data-block]').length !== blocks.length) {
+      if (rescanPending) return;
+      rescanPending = true;
+      setTimeout(function () {
+        rescanPending = false;
+        if (document.querySelectorAll('[data-block]').length === blocks.length) return;
         var prev = {};
         for (var i = 0; i < blocks.length; i++) prev[blocks[i].id] = blocks[i];
         collect();
         for (var j = 0; j < blocks.length; j++) {
           var old = prev[blocks[j].id];
           if (old) { blocks[j].dwell = old.dwell; blocks[j].entries = old.entries;
-                     blocks[j].seen = old.seen; blocks[j].run = old.run; blocks[j].inRun = old.inRun; }
+                     blocks[j].seen = old.seen; blocks[j].run = old.run;
+                     blocks[j].inRun = old.inRun; blocks[j].vis = old.vis; }
         }
-      }
+      }, 1000);
     });
     mo.observe(document.body, { childList: true, subtree: true });
   }

@@ -15,7 +15,7 @@ const SRC = readFileSync(join(here, '..', 'tracker', 'r.js'), 'utf8');
 
 const VIEWPORT = 800;
 
-function harness(layout) {
+function harness(layout, sharedStore) {
   let scrollY = 0;
   let visibility = 'visible';
   const timers = [];
@@ -46,7 +46,9 @@ function harness(layout) {
     addEventListener: () => {},
   };
 
-  const store = new Map();
+  // Compartilhar o store entre dois harnesses simula um F5: a aba é a mesma,
+  // o script é carregado de novo.
+  const store = sharedStore || new Map();
   const ctx = {
     document: doc,
     navigator: { userAgent: 'Mozilla/5.0 (Macintosh)', sendBeacon: () => true },
@@ -67,7 +69,7 @@ function harness(layout) {
   runInContext(SRC, ctx);
 
   return {
-    ctx, sent,
+    ctx, sent, store,
     scrollTo(y) { scrollY = y; },
     hide() { visibility = 'hidden'; },
     show() { visibility = 'visible'; },
@@ -146,6 +148,28 @@ console.log('\naba em segundo plano');
   const depois = Number(h.state()[0].tempo_s);
   ok('tempo não acumula com a aba escondida', antes === depois,
      `${antes}s -> ${depois}s após 60s em segundo plano`);
+}
+
+console.log('\nrecarregar a página (F5) — a proposta promete que não cria sessão nova');
+{
+  const antes = harness(LAYOUT);
+  antes.scrollTo(0); antes.advance(20000);      // lê 20s no hero
+  const t1 = Number(antes.state()[0].tempo_s);
+  const sid1 = antes.ctx.regua.session();
+  const seq1 = antes.sent[antes.sent.length - 1].n;
+
+  const depois = harness(LAYOUT, antes.store);  // F5: mesma aba, script recarregado
+  ok('mantém o mesmo id de sessão', depois.ctx.regua.session() === sid1);
+  ok('o tempo acumulado sobrevive ao reload', Number(depois.state()[0].tempo_s) === t1,
+     `${t1}s antes -> ${depois.state()[0].tempo_s}s depois`);
+
+  depois.scrollTo(0); depois.advance(10000);
+  const t2 = Number(depois.state()[0].tempo_s);
+  ok('continua somando de onde parou', t2 > t1, `${t1}s -> ${t2}s`);
+
+  const seq2 = depois.sent[depois.sent.length - 1].n;
+  ok('o contador de lotes não regride', seq2 > seq1,
+     `n=${seq1} antes, n=${seq2} depois — se regredisse, o servidor descartaria tudo`);
 }
 
 console.log('\npayload enviado');
