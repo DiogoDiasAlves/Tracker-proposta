@@ -1,4 +1,10 @@
 import type { Otimizacao, TopoQuiz } from '@/lib/dados';
+import { IconEye, IconUser, IconTrend, IconUserCheck, IconClipboard } from '../icons';
+
+const ICONE = {
+  visitantes: IconEye, interagiram: IconUser, taxa_interacao: IconTrend,
+  qualificados: IconUserCheck, completos: IconClipboard,
+} as const;
 
 const nf = (n: number, d = 1) => n.toFixed(d).replace('.', ',');
 
@@ -19,13 +25,21 @@ export function TopoFunil({ topo }: { topo: TopoQuiz }) {
       {ordem.map(chave => {
         const k = topo[chave];
         const cor = k.meta ? COR[k.meta.estado] : 'var(--color-ink)';
+        const Icone = ICONE[chave];
         return (
           <div key={chave} className={`card p-5 ${k.meta?.estado === 'bom' ? 'glow-accent' : ''}`}>
             <p className="text-[10.5px] uppercase tracking-wider text-faint">{k.rotulo}</p>
-            <p className="mt-2.5 text-[30px] font-semibold leading-none tnum" style={{ color: cor }}>
-              {k.pct ? `${nf(k.valor)}%` : k.valor.toLocaleString('pt-BR')}
-            </p>
-            <p className="mt-2 text-[11px] leading-snug text-muted">{k.nota}</p>
+            {/* ícone ao lado do número, como na referência: dá reconhecimento
+                da métrica antes mesmo de a pessoa ler o rótulo */}
+            <div className="mt-2.5 flex items-center gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-panel">
+                <Icone className="h-[18px] w-[18px]" />
+              </span>
+              <span className="text-[30px] font-semibold leading-none tnum" style={{ color: cor }}>
+                {k.pct ? `${nf(k.valor)}%` : k.valor.toLocaleString('pt-BR')}
+              </span>
+            </div>
+            <p className="mt-3 text-[11px] leading-snug text-muted">{k.nota}</p>
             {k.meta && (
               <p className="mt-1 text-[11px] leading-snug" style={{ color: cor }}>
                 {k.meta.texto}

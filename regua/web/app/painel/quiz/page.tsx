@@ -1,29 +1,35 @@
-import { ativos, facetas, quiz, leitura, siteKey } from '@/lib/dados';
+import { ativos, facetas, quiz, leitura, leadsQuiz, siteKey } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, AindaSemColeta } from '@/components/ui/estados';
 import { PillFiltro } from '@/components/ui/pill-filtro';
 import { TEXTO, faixaQueda } from '@/lib/faixas';
 import { TopoFunil, MetasOtimizacao } from '@/components/painel/metas-quiz';
+import { TabelaLeads } from '@/components/painel/tabela-leads';
 
 export const metadata = { title: 'Quiz — Régua' };
 
 const nf = (n: number, d = 1) => n.toFixed(d).replace('.', ',');
 
-type Props = { searchParams: Promise<{ pagina?: string; versao?: string; disp?: string }> };
+type Props = { searchParams: Promise<{ pagina?: string; versao?: string; disp?: string; pag?: string; q?: string }> };
 
 export default async function Quiz({ searchParams }: Props) {
   const sp = await searchParams;
   const { conta } = await exigirConta();
   const lista = (await ativos(conta.id)).filter(a => a.sessions > 0);
 
-  const comQuiz: { key: string; versao: string; disp: string }[] = [];
+  const comQuiz: { key: string; versao: string; disp: string; sessoes: number }[] = [];
   for (const a of lista) {
     const f = await facetas(conta.id, a.key);
     if (!f.counts.length) continue;
     const maior = f.counts.reduce((x, y) => (y.n > x.n ? y : x), f.counts[0]);
     const q = await quiz(conta.id, a.key, maior.version, maior.device);
-    if (q && q.perguntas.length) comQuiz.push({ key: a.key, versao: maior.version, disp: maior.device });
+    if (q && q.perguntas.length) {
+      comQuiz.push({ key: a.key, versao: maior.version, disp: maior.device, sessoes: a.sessions });
+    }
   }
+  // Abre no quiz com mais tráfego, não no de atividade mais recente: um quiz
+  // de teste com dez sessões não pode ser a primeira coisa que se vê.
+  comQuiz.sort((a, b) => b.sessoes - a.sessoes);
 
   if (!comQuiz.length) {
     return (
@@ -54,6 +60,12 @@ export default async function Quiz({ searchParams }: Props) {
   const funil = await leitura(conta.id, alvo.key, versao, disp);
   const gargalo = funil?.steps.find(s => s.step === funil.worst) ?? null;
 
+  const leads = await leadsQuiz(conta.id, alvo.key, versao, disp, {
+    pagina: Math.max(1, Number(sp.pag) || 1),
+    porPagina: 25,
+    busca: sp.q ?? '',
+  });
+
   const comBase = q.caminhos.filter(c => c.base_suficiente);
 
   return (
@@ -83,6 +95,8 @@ export default async function Quiz({ searchParams }: Props) {
       </header>
 
       <TopoFunil topo={q.topo} />
+
+      {leads && <TabelaLeads dados={leads} />}
 
       <MetasOtimizacao metricas={q.otimizacao} />
 

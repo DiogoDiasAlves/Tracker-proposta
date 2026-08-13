@@ -2,7 +2,7 @@ import 'server-only';
 import { pool, listAssets, facets } from '@regua/db';
 import { compute, comparison, resumoAsset } from '@regua/db/metrics';
 import { metricasVideo } from '@regua/db/video';
-import { metricasQuiz } from '@regua/db/quiz';
+import { metricasQuiz, respostasPorLead } from '@regua/db/quiz';
 
 /* Pool único por processo. Em dev o Next recarrega o módulo a cada mudança,
    e sem isto cada recarga abriria um pool novo até estourar as conexões. */
@@ -125,3 +125,18 @@ export type Otimizacao = {
   detalhe?: string | null; explica: string;
   piso?: number; ideal?: number; teto?: number;
 };
+
+export type LeadsQuiz = {
+  etapas: { chave: string; numero: number }[];
+  total: number; pagina: number; porPagina: number; paginas: number;
+  linhas: {
+    sid: string; device: string; origem: string;
+    completo: boolean; lead: boolean; convertido: boolean; quando: number;
+    respostas: Record<string, string>; vistos: string[]; cliques: string[];
+  }[];
+};
+
+export const leadsQuiz = (
+  accountId: number, key: string, version: string, device: string,
+  opcoes: { pagina?: number; porPagina?: number; busca?: string }
+) => respostasPorLead(db, accountId, key, version, device, opcoes) as Promise<LeadsQuiz | null>;

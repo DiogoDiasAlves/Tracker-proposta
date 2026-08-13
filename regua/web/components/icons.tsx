@@ -68,3 +68,24 @@ export const IconLogo = ({ className }: P) => (
     </defs>
   </svg>
 );
+
+/* Ícones dos cartões de topo, no mesmo papel que têm na referência:
+   dar reconhecimento imediato à métrica antes da leitura do número. */
+export const IconEye = (p: P) => (
+  <Svg {...p}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></Svg>
+);
+export const IconUser = (p: P) => (
+  <Svg {...p}><circle cx="12" cy="8" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" /></Svg>
+);
+export const IconTrend = (p: P) => (
+  <Svg {...p}><path d="m3 16 5-5 4 4 8-8" /><path d="M15 7h5v5" /></Svg>
+);
+export const IconUserCheck = (p: P) => (
+  <Svg {...p}><circle cx="10" cy="8" r="3.5" /><path d="M4 20a6 6 0 0 1 10.5-4" /><path d="m16 17 2 2 4-4" /></Svg>
+);
+export const IconClipboard = (p: P) => (
+  <Svg {...p}><rect x="5" y="4" width="14" height="17" rx="2.5" /><path d="M9 4h6v3H9z" /><path d="m9 13 2 2 4-4" /></Svg>
+);
+export const IconDots = (p: P) => (
+  <Svg {...p}><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></Svg>
+);

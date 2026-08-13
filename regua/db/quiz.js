@@ -263,3 +263,84 @@ export async function metricasQuiz(db, accountId, key, version, device) {
     caminhos,
   };
 }
+
+/* Respostas por lead — linhas são pessoas, colunas são etapas.
+   É como as ferramentas de quiz do mercado organizam o dado, e por bom
+   motivo: o agregado diz ONDE o funil perde, e esta tabela deixa você olhar
+   quem exatamente passou por lá e o que respondeu. Uma responde a pergunta
+   "quanto", a outra responde "quem".
+
+   Só chave de opção aparece aqui, nunca texto digitado — a tabela herda a
+   mesma garantia do coletor, porque o banco não tem onde guardar o resto. */
+export async function respostasPorLead(
+  db, accountId, key, version, device, { pagina = 1, porPagina = 25, busca = '' } = {}
+) {
+  const asset = (await db.query(
+    'SELECT id FROM assets WHERE account_id = $1 AND key = $2', [accountId, key]
+  )).rows[0];
+  if (!asset) return null;
+
+  const ordem = (await db.query(`
+    SELECT step, MIN(ord)::int AS ord FROM step_stats b
+    JOIN sessions s ON s.id = b.session_id
+    WHERE s.asset_id = $1 AND s.version = $2 AND s.device = $3
+    GROUP BY step ORDER BY ord
+  `, [asset.id, version, device])).rows;
+
+  /* O filtro usa $4 direto. A versão anterior montava com $5 e trocava por
+     $4 com String.replace — que substitui só a PRIMEIRA ocorrência, e o
+     filtro tem duas. A segunda sobrava e a busca quebrava com "supplies 4
+     parameters, but requires 5". */
+  const termo = busca.trim().toLowerCase();
+  const filtro = termo
+    ? `AND EXISTS (
+         SELECT 1 FROM quiz_answers a WHERE a.session_id = s.id
+         AND (lower(a.opcao) LIKE $4 OR lower(a.pergunta) LIKE $4))`
+    : '';
+  const args = [asset.id, version, device];
+  if (termo) args.push(`%${termo}%`);
+
+  const total = (await db.query(
+    `SELECT COUNT(*)::int AS n FROM sessions s
+     WHERE s.asset_id = $1 AND s.version = $2 AND s.device = $3
+       ${filtro}`,
+    args
+  )).rows[0].n;
+
+  const off = Math.max(0, (pagina - 1) * porPagina);
+  const linhas = (await db.query(`
+    SELECT s.id, s.sid, s.device, s.utm_source, s.ad_id,
+           s.quiz_completo, s.quiz_lead, s.converted, s.started_at,
+           (SELECT json_object_agg(a.pergunta, a.opcao)
+              FROM quiz_answers a WHERE a.session_id = s.id) AS respostas,
+           (SELECT array_agg(DISTINCT b.step)
+              FROM step_stats b WHERE b.session_id = s.id) AS vistos,
+           (SELECT array_agg(DISTINCT c.step)
+              FROM cta_clicks c WHERE c.session_id = s.id) AS cliques
+    FROM sessions s
+    WHERE s.asset_id = $1 AND s.version = $2 AND s.device = $3
+      ${filtro}
+    ORDER BY s.started_at DESC
+    LIMIT ${porPagina} OFFSET ${off}
+  `, args)).rows;
+
+  return {
+    etapas: ordem.map((o, i) => ({ chave: o.step, numero: i + 1 })),
+    total,
+    pagina,
+    porPagina,
+    paginas: Math.max(1, Math.ceil(total / porPagina)),
+    linhas: linhas.map(l => ({
+      sid: l.sid,
+      device: l.device,
+      origem: l.ad_id ? `${l.utm_source ?? 'meta'}/${l.ad_id}` : (l.utm_source ?? '—'),
+      completo: l.quiz_completo,
+      lead: l.quiz_lead,
+      convertido: l.converted,
+      quando: Number(l.started_at),
+      respostas: l.respostas ?? {},
+      vistos: l.vistos ?? [],
+      cliques: l.cliques ?? [],
+    })),
+  };
+}
