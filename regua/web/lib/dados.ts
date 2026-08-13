@@ -96,6 +96,7 @@ export type OpcaoQuiz = {
 export type LeituraQuiz = {
   sessoes: number; completos: number; conclusao: number; leads: number;
   taxa_lead: number; conversao: number; minimo_caminho: number;
+  topo: TopoQuiz; otimizacao: Otimizacao[]; teto_perda: number;
   ultima_pergunta: string | null;
   perguntas: { pergunta: string; ord: number; ultima: boolean; opcoes: OpcaoQuiz[] }[];
   caminhos: {
@@ -110,3 +111,17 @@ export const videos = (accountId: number, key: string, version: string, device: 
 
 export const quiz = (accountId: number, key: string, version: string, device: string) =>
   metricasQuiz(db, accountId, key, version, device) as Promise<LeituraQuiz | null>;
+
+export type Meta = { estado: 'bom' | 'atencao' | 'ruim' | 'sem-dado'; texto: string };
+export type CartaoTopo = {
+  valor: number; rotulo: string; nota: string; pct?: boolean; meta?: Meta;
+};
+export type TopoQuiz = {
+  visitantes: CartaoTopo; interagiram: CartaoTopo; taxa_interacao: CartaoTopo;
+  qualificados: CartaoTopo; completos: CartaoTopo;
+};
+export type Otimizacao = {
+  chave: string; rotulo: string; valor: number | null; meta: Meta;
+  detalhe?: string | null; explica: string;
+  piso?: number; ideal?: number; teto?: number;
+};

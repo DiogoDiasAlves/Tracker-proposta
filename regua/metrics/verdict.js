@@ -18,7 +18,15 @@
  */
 
 export const MIN_SAMPLE = 300;  // abaixo disso o painel avisa que é ruído
-export const HIGH_DROP = 15;    // limiar de "queda alta"
+export const HIGH_DROP = 15;    // limiar de "queda alta" — padrão
+
+/* O limiar de queda NÃO é o mesmo nos três produtos, e tratar como se fosse
+   era um erro nosso.
+   Rolar para o próximo bloco não custa nada; responder mais uma pergunta é
+   trabalho. Por isso o mercado de quiz trabalha com teto de 5% de perda POR
+   ETAPA — uma pergunta que perde 9% já é problema, e o limiar de 15% herdado
+   da página deixaria isso passar em silêncio. */
+export const LIMIAR_QUEDA = { page: 15, vsl: 15, quiz: 5 };
 
 export function median(xs) {
   if (!xs.length) return 0;
@@ -63,7 +71,7 @@ const VOCAB = {
 export function verdict(s, i, med, kind = 'page') {
   const v = VOCAB[kind] || VOCAB.page;
   const hiT = s.per100 >= med;
-  const hiD = s.drop !== null && s.drop >= HIGH_DROP;
+  const hiD = s.drop !== null && s.drop >= (LIMIAR_QUEDA[kind] ?? HIGH_DROP);
   // Vírgula decimal: o texto do veredito aparece ao lado dos números do
   // painel, e "4.9s" no meio de uma tela que escreve "45,1%" lê como erro.
   const f = n => n.toFixed(1).replace('.', ',');

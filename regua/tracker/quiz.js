@@ -44,6 +44,7 @@ register({
         seen: v ? v.seen : false,
         inRun: v ? v.inRun : false,
         vis: v ? v.vis : false,
+        oferta: el.hasAttribute('data-quiz-offer'),
       });
     }
     perguntas.sort(function (a, b) { return a.ord - b.ord; });
@@ -95,11 +96,15 @@ register({
     for (var i = 0; i < perguntas.length; i++) {
       var p = perguntas[i];
       if (!p.seen) continue;
-      etapas.push({
+      var linha = {
         i: p.id, o: p.ord,
         h: Math.round(p.el.getBoundingClientRect().height),
         t: p.dwell, e: p.entries,
-      });
+      };
+      // data-quiz-offer diz QUAL etapa é a da oferta. Sem isso o painel teria
+      // de adivinhar que é a última, e nem todo quiz termina na oferta.
+      if (p.oferta) linha.of = 1;
+      etapas.push(linha);
     }
     if (!etapas.length) return {};
     var out = { qz: { e: etapas, r: respostas.slice(0, 100) } };

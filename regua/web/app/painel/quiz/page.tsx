@@ -3,6 +3,7 @@ import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, AindaSemColeta } from '@/components/ui/estados';
 import { PillFiltro } from '@/components/ui/pill-filtro';
 import { TEXTO, faixaQueda } from '@/lib/faixas';
+import { TopoFunil, MetasOtimizacao } from '@/components/painel/metas-quiz';
 
 export const metadata = { title: 'Quiz — Régua' };
 
@@ -81,20 +82,19 @@ export default async function Quiz({ searchParams }: Props) {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Stat rotulo="Conclusão" valor={`${nf(q.conclusao)}%`} nota={`${q.completos} chegaram ao fim`} />
-        <Stat rotulo="Viraram lead" valor={`${nf(q.taxa_lead)}%`} nota="de quem concluiu" />
-        <Stat rotulo="Conversão" valor={`${nf(q.conversao, 2)}%`} nota="do total de sessões" />
-        <Stat rotulo="Maior queda"
-              valor={gargalo ? `${nf(gargalo.drop ?? 0)}%` : '—'}
-              nota={funil?.worst ?? 'sem gargalo'} destaque />
-      </div>
+      <TopoFunil topo={q.topo} />
+
+      <MetasOtimizacao metricas={q.otimizacao} />
 
       {/* Funil por pergunta — mesma conta dos blocos, porque pergunta é etapa */}
       <section className="card overflow-hidden">
-        <h2 className="border-b border-line px-5 py-4 text-[13px] uppercase tracking-wider text-muted">
-          Funil por pergunta
-        </h2>
+        <div className="border-b border-line px-5 py-4">
+          <h2 className="text-[13px] uppercase tracking-wider text-muted">Funil por pergunta</h2>
+          <p className="mt-1 text-[11.5px] text-faint">
+            Perda acima de {q.teto_perda}% por etapa já é problema em quiz — responder mais uma
+            pergunta é trabalho, ao contrário de rolar para o próximo bloco de uma página.
+          </p>
+        </div>
         <div className="divide-y divide-line-soft">
           {funil?.steps.map((s, i) => {
             const faixa = faixaQueda(s.drop, i === 0);
@@ -106,9 +106,10 @@ export default async function Quiz({ searchParams }: Props) {
                   <div className="h-full rounded-full bg-accent/70" style={{ width: `${s.reach}%` }} />
                 </div>
                 <span className="w-14 text-right text-[12px] tnum text-muted">{nf(s.reach, 0)}%</span>
-                <span className="w-16 text-right text-[12px] font-semibold tnum"
-                      style={{ color: TEXTO[faixa] }}>
-                  {s.drop === null ? '—' : `−${nf(s.drop, 0)}%`}
+                <span className="w-20 text-right text-[12px] font-semibold tnum"
+                      style={{ color: s.drop !== null && s.drop > q.teto_perda
+                        ? 'var(--color-danger)' : TEXTO[faixa] }}>
+                  {s.drop === null ? '—' : `−${nf(s.drop, 1)}%`}
                 </span>
               </div>
             );
@@ -195,16 +196,3 @@ export default async function Quiz({ searchParams }: Props) {
   );
 }
 
-function Stat({ rotulo, valor, nota, destaque }: {
-  rotulo: string; valor: string; nota: string; destaque?: boolean;
-}) {
-  return (
-    <div className={`card p-5 ${destaque ? 'glow-accent' : ''}`}>
-      <p className="text-[11px] uppercase tracking-wider text-faint">{rotulo}</p>
-      <p className={`mt-2.5 text-[30px] font-semibold leading-none tnum ${destaque ? 'text-accent text-glow' : 'text-ink'}`}>
-        {valor}
-      </p>
-      <p className="mt-2 text-[11.5px] text-muted">{nota}</p>
-    </div>
-  );
-}

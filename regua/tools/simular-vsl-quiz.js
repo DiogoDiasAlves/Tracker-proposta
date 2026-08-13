@@ -68,6 +68,7 @@ const PERGUNTAS = [
   ['orcamento', [['ate-100', .45], ['100-300', .38], ['acima-300', .17]]],
   ['contato',   [['aceito', 1]]],
 ];
+const OFERTA = 'resultado';
 
 function sortear(opcoes) {
   let r = Math.random();
@@ -79,6 +80,17 @@ async function sessaoQuiz(i, device) {
   const sid = `sq-${device}-${i}-${Math.random().toString(36).slice(2, 8)}`;
   const etapas = [], respostas = [];
   let saiu = null;
+
+  /* Parte das pessoas abre e sai sem responder nada. Sem isso a taxa de
+     interação daria 100% e a métrica ficaria inútil para testar a tela. */
+  const base = { s: sid, k: CHAVE, p: 'quiz-diagnostico', v: '1', d: device };
+  if (Math.random() < 0.36) {
+    const so = [{ i: PERGUNTAS[0][0], o: 0, h: 420, t: Math.round(rand(600, 4000)), e: 1 }];
+    await post({ ...base, n: 1, qz: { e: so },
+      st: { us: 'meta', um: 'cpc', uc: 'campanha-1', uo: String(1200000 + (i % 4)), ut: null, rf: null } });
+    await post({ ...base, n: 2, qz: { e: so }, x: { b: PERGUNTAS[0][0], cta: 0 } });
+    return;
+  }
 
   for (let k = 0; k < PERGUNTAS.length; k++) {
     const [pergunta, opcoes] = PERGUNTAS[k];
@@ -97,16 +109,26 @@ async function sessaoQuiz(i, device) {
 
   const completou = etapas.length === PERGUNTAS.length;
   const lead = completou && Math.random() < 0.83;
-  const converteu = lead && Math.random() < 0.19;
 
-  const base = { s: sid, k: CHAVE, p: 'quiz-diagnostico', v: '1', d: device };
+  // quem virou lead vê a tela de oferta; parte clica no CTA e parte compra
+  const cliques = [];
+  if (lead) {
+    etapas.push({ i: OFERTA, o: PERGUNTAS.length, h: 420, t: Math.round(rand(3000, 12000)), e: 1, of: 1 });
+    saiu = OFERTA;
+    if (Math.random() < 0.24) cliques.push({ k: 'checkout-quiz', b: OFERTA, t: Date.now() });
+  }
+  const converteu = cliques.length > 0 && Math.random() < 0.31;
+
   const qz = { e: etapas, r: respostas };
   if (completou) qz.c = 1;
   if (lead) qz.l = 1;
 
   await post({ ...base, n: 1, qz,
     st: { us: 'meta', um: 'cpc', uc: 'campanha-1', uo: String(1200000 + (i % 4)), ut: null, rf: null } });
-  await post({ ...base, n: 2, qz, cv: converteu ? 1 : undefined, x: { b: saiu, cta: 0 } });
+  await post({ ...base, n: 2, qz,
+    c: cliques.length ? cliques : undefined,
+    cv: converteu ? 1 : undefined,
+    x: { b: saiu, cta: cliques.length ? 1 : 0 } });
 }
 
 const run = async () => {

@@ -157,13 +157,15 @@ export async function ingest(db, raw) {
         const passo = label(e.i);
         if (!passo) continue;
         await c.query(`
-          INSERT INTO step_stats (session_id, step, ord, height, dwell_ms, entries)
-          VALUES ($1,$2,$3,$4,$5,$6)
+          INSERT INTO step_stats (session_id, step, ord, height, dwell_ms, entries, extra)
+          VALUES ($1,$2,$3,$4,$5,$6,$7)
           ON CONFLICT (session_id, step) DO UPDATE SET
             ord = EXCLUDED.ord, height = EXCLUDED.height,
-            dwell_ms = EXCLUDED.dwell_ms, entries = EXCLUDED.entries`,
+            dwell_ms = EXCLUDED.dwell_ms, entries = EXCLUDED.entries,
+            extra = COALESCE(EXCLUDED.extra, step_stats.extra)`,
           [sessionId, passo, clampInt(e.o, 0, 999), clampInt(e.h, 0, 200000),
-           clampInt(e.t, 0, 6 * 3600 * 1000), clampInt(e.e, 0, 10000)]
+           clampInt(e.t, 0, 6 * 3600 * 1000), clampInt(e.e, 0, 10000),
+           e.of ? JSON.stringify({ oferta: true }) : null]
         );
       }
 

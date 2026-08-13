@@ -9,6 +9,34 @@
  *   • qual CAMINHO de respostas termina em venda
  */
 
+/* Metas de otimização de funil de quiz.
+   Não são invenção nossa: é o padrão que o mercado usa para decidir se um
+   quiz está bom. Ter a meta ao lado do número é o que separa "55%" de
+   "55%, e o piso é 50" — a InLead mostra o primeiro, e o segundo é o que
+   faz alguém agir. */
+export const METAS = {
+  interacao:  { piso: 50, ideal: 70, rotulo: 'Taxa de interação' },
+  perda:      { teto: 5,             rotulo: 'Perda entre etapas' },
+  penultima:  { piso: 50, ideal: 60, rotulo: 'Retenção na penúltima' },
+  oferta:     { ideal: 20,           rotulo: 'Interação na oferta' },
+};
+
+/** Compara um número com a meta e devolve o estado — nunca só a cor. */
+function julgar(valor, { piso, ideal, teto }) {
+  if (valor == null) return { estado: 'sem-dado', texto: 'sem dado' };
+  if (teto != null) {
+    return valor <= teto
+      ? { estado: 'bom', texto: `dentro do teto de ${teto}%` }
+      : { estado: 'ruim', texto: `acima do teto de ${teto}%` };
+  }
+  if (ideal != null && valor >= ideal) return { estado: 'bom', texto: `no ideal (${ideal}%+)` };
+  if (piso != null && valor >= piso) return { estado: 'atencao', texto: `acima do piso de ${piso}%, ideal é ${ideal}%` };
+  if (piso != null) return { estado: 'ruim', texto: `abaixo do piso de ${piso}%` };
+  return valor >= (ideal ?? 0)
+    ? { estado: 'bom', texto: `no ideal (${ideal}%+)` }
+    : { estado: 'atencao', texto: `ideal é ${ideal}%` };
+}
+
 export async function metricasQuiz(db, accountId, key, version, device) {
   const asset = (await db.query(
     'SELECT id FROM assets WHERE account_id = $1 AND key = $2', [accountId, key]
@@ -109,6 +137,107 @@ export async function metricasQuiz(db, accountId, key, version, device) {
     b.conversao - a.conversao || b.sessoes - a.sessoes
   );
 
+  /* ── os cinco números do topo ────────────────────────────────────────
+     Mesmas definições que o mercado usa, para o número ser comparável com
+     o que a pessoa já conhece de outras ferramentas. */
+  const totalPerguntas = ordem.size || 1;
+
+  const eng = (await db.query(`
+    WITH por_sessao AS (
+      SELECT s.id, COUNT(a.pergunta)::int AS respondidas
+      FROM sessions s LEFT JOIN quiz_answers a ON a.session_id = s.id
+      WHERE s.asset_id = $1 AND s.version = $2 AND s.device = $3
+      GROUP BY s.id
+    )
+    SELECT COUNT(*) FILTER (WHERE respondidas >= 1)::int AS interagiram,
+           COUNT(*) FILTER (WHERE respondidas::float / $4 > 0.5)::int AS qualificados
+    FROM por_sessao
+  `, [asset.id, version, device, totalPerguntas])).rows[0];
+
+  const visitantes = t.n;
+  const taxaInteracao = (eng.interagiram / visitantes) * 100;
+
+  // Retenção na penúltima etapa: quem chega lá já venceu o funil inteiro e
+  // só falta a oferta. É o número que melhor prevê volume de venda.
+  const passos = [...ordem.entries()].sort((a, b) => a[1] - b[1]).map(([k]) => k);
+  const penultimaChave = passos.length >= 2 ? passos[passos.length - 2] : null;
+  const alcance = new Map((await db.query(`
+    SELECT b.step, COUNT(DISTINCT b.session_id)::int AS n
+    FROM step_stats b JOIN sessions s ON s.id = b.session_id
+    WHERE s.asset_id = $1 AND s.version = $2 AND s.device = $3
+    GROUP BY b.step
+  `, [asset.id, version, device])).rows.map(r => [r.step, r.n]));
+
+  const retPenultima = penultimaChave
+    ? ((alcance.get(penultimaChave) ?? 0) / visitantes) * 100 : null;
+
+  /* Interação na etapa da oferta: dos que CHEGARAM na oferta, quantos
+     clicaram. A base é quem chegou, não o total — misturar as duas bases é
+     como o mesmo "20%" acaba querendo dizer duas coisas diferentes. */
+  const marcada = (await db.query(`
+    SELECT b.step FROM step_stats b JOIN sessions s ON s.id = b.session_id
+    WHERE s.asset_id = $1 AND s.version = $2 AND s.device = $3
+      AND b.extra->>'oferta' = 'true'
+    GROUP BY b.step ORDER BY COUNT(*) DESC LIMIT 1
+  `, [asset.id, version, device])).rows[0]?.step ?? null;
+  const ofertaChave = marcada ?? passos[passos.length - 1] ?? null;
+  const cliquesOferta = (await db.query(`
+    SELECT COUNT(DISTINCT c.session_id)::int AS n
+    FROM cta_clicks c JOIN sessions s ON s.id = c.session_id
+    WHERE s.asset_id = $1 AND s.version = $2 AND s.device = $3 AND c.step = $4
+  `, [asset.id, version, device, ofertaChave])).rows[0]?.n ?? 0;
+  const chegaramOferta = ofertaChave ? (alcance.get(ofertaChave) ?? 0) : 0;
+  const interacaoOferta = chegaramOferta ? (cliquesOferta / chegaramOferta) * 100 : null;
+
+  /* Maior perda entre etapas consecutivas, contra o teto de 5%.
+
+     Começa em 1 de propósito. A perda da PRIMEIRA transição é quem abriu o
+     quiz e não respondeu nada — e isso já é exatamente a taxa de interação.
+     Contar de novo aqui é medir a mesma coisa duas vezes, e pior: a primeira
+     transição quase sempre ganha, escondendo o gargalo de verdade lá no meio
+     do funil. É o mesmo motivo pelo qual o maior gargalo de uma página ignora
+     a dobra. */
+  let piorPerda = null;
+  for (let i = 1; i < passos.length - 1; i++) {
+    const a = alcance.get(passos[i]) ?? 0, b = alcance.get(passos[i + 1]) ?? 0;
+    if (!a) continue;
+    const perda = (1 - b / a) * 100;
+    if (!piorPerda || perda > piorPerda.perda) {
+      piorPerda = { de: passos[i], para: passos[i + 1], perda };
+    }
+  }
+
+  const topo = {
+    visitantes: { valor: visitantes, rotulo: 'Visitantes',
+                  nota: 'acessaram o funil' },
+    interagiram: { valor: eng.interagiram, rotulo: 'Interagiram',
+                   nota: 'responderam ao menos uma pergunta' },
+    taxa_interacao: { valor: taxaInteracao, pct: true, rotulo: METAS.interacao.rotulo,
+                      meta: julgar(taxaInteracao, METAS.interacao), nota: 'dos visitantes' },
+    qualificados: { valor: eng.qualificados, rotulo: 'Qualificados',
+                    nota: 'passaram de metade das etapas' },
+    completos: { valor: t.completos, rotulo: 'Fluxos completos',
+                 nota: 'passaram da última etapa' },
+  };
+
+  const otimizacao = [
+    { chave: 'interacao', ...METAS.interacao, valor: taxaInteracao,
+      meta: julgar(taxaInteracao, METAS.interacao),
+      explica: 'De cada 100 que abrem o quiz, quantos chegam a responder algo. Abaixo do piso, o problema é a primeira tela — promessa ou primeira pergunta.' },
+    { chave: 'perda', ...METAS.perda, valor: piorPerda?.perda ?? null,
+      meta: julgar(piorPerda?.perda ?? null, METAS.perda),
+      detalhe: piorPerda ? `${piorPerda.de} → ${piorPerda.para}` : null,
+      explica: 'A maior queda entre duas etapas seguidas. Responder mais uma pergunta é trabalho, então o teto aqui é bem mais apertado que o de uma página.' },
+    { chave: 'penultima', ...METAS.penultima, valor: retPenultima,
+      meta: julgar(retPenultima, METAS.penultima),
+      detalhe: penultimaChave,
+      explica: 'Quem chega na penúltima já venceu o funil e só falta a oferta. É o número que melhor prevê volume de venda.' },
+    { chave: 'oferta', ...METAS.oferta, valor: interacaoOferta,
+      meta: julgar(interacaoOferta, METAS.oferta),
+      detalhe: ofertaChave ? `${cliquesOferta} de ${chegaramOferta} que chegaram em ${ofertaChave}` : null,
+      explica: 'Dos que chegaram na oferta, quantos clicaram. Base é quem chegou — não o total de visitantes.' },
+  ];
+
   return {
     sessoes: t.n,
     completos: t.completos,
@@ -117,6 +246,9 @@ export async function metricasQuiz(db, accountId, key, version, device) {
     taxa_lead: t.completos ? (t.leads / t.completos) * 100 : 0,
     conversao: (t.conv / t.n) * 100,
     minimo_caminho: MINIMO,
+    topo,
+    otimizacao,
+    teto_perda: METAS.perda.teto,
     /* `ultima` existe porque na última pergunta todo mundo "abandona" por
        definição: a sessão acaba ali. Mostrar 100% de abandono como problema
        seria o mesmo erro de ordenar blocos por saída absoluta. */
