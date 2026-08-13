@@ -74,8 +74,13 @@ export async function accountBySiteKey(db, siteKey) {
 /** Cria o asset no primeiro evento. Não há cadastro de oferta a fazer. */
 export async function assetId(db, accountId, key, kind = 'page') {
   const { rows } = await db.query(
+    /* Só promove de 'page' para um tipo específico, nunca o contrário: o
+       primeiro lote de um quiz chega antes de qualquer pergunta qualificar,
+       e nasceria como página. Rebaixar depois apagaria a classificação certa. */
     `INSERT INTO assets (account_id, key, kind) VALUES ($1, $2, $3)
-     ON CONFLICT (account_id, key) DO UPDATE SET key = EXCLUDED.key
+     ON CONFLICT (account_id, key) DO UPDATE SET
+       kind = CASE WHEN assets.kind = 'page' AND EXCLUDED.kind <> 'page'
+                   THEN EXCLUDED.kind ELSE assets.kind END
      RETURNING id`,
     [accountId, key, kind]
   );

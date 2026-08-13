@@ -85,7 +85,7 @@ export function Sidebar({ assets }: { assets: AssetResumo[] }) {
             {assets.slice(0, 6).map(a => (
               <li key={a.key}>
                 <Link
-                  href={`/painel/paginas/${encodeURIComponent(a.key)}`}
+                  href={`/painel?pagina=${encodeURIComponent(a.key)}`}
                   className="block rounded-lg px-2.5 py-2 transition hover:bg-surface/60"
                 >
                   <div className="truncate text-[12.5px] text-accent/90">{a.key}</div>

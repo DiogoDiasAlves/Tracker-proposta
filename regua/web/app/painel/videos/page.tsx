@@ -96,6 +96,17 @@ export default async function Videos({ searchParams }: Props) {
               alerta={v.autoplay_pct > 50} />
       </div>
 
+      {v.sessoes_com_play < 300 && (
+        <div className="flex items-start gap-3 rounded-xl border border-danger/25 bg-danger/[.07] px-4 py-3 text-[12.5px] leading-relaxed text-danger">
+          <span className="mt-0.5">▲</span>
+          <p>
+            Apenas {v.sessoes_com_play} sessão(ões) com play. Abaixo de 300 a curva é ruído —
+            cada pessoa que sai move a linha {(100 / Math.max(1, v.sessoes_medidas)).toFixed(0)} pontos
+            de uma vez. Leia como tendência, não como resultado.
+          </p>
+        </div>
+      )}
+
       {v.sessoes_parciais > 0 && (
         <div className="rounded-xl border border-warn/25 bg-warn/[.06] px-4 py-3 text-[12.5px] leading-relaxed text-warn">
           {v.sessoes_parciais} sessão(ões) ficaram de fora da curva porque o player não expôs a

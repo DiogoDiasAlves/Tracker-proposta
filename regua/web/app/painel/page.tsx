@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { ativos, facetas, leitura, siteKey } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { PillFiltro } from '@/components/ui/pill-filtro';
+import { SeletorAtivo } from '@/components/ui/seletor-ativo';
 import { VistaRetencao } from '@/components/painel/vista-retencao';
 import { IconArrowUpRight, IconPlug } from '@/components/icons';
 
@@ -18,8 +20,12 @@ export default async function Painel({ searchParams }: { searchParams: Busca }) 
   if (!comDados.length) return <VazioInicial chave={await siteKey(conta.id)} />;
 
   // Abre na página com mais tráfego, não na mais recente: uma página de teste
-  // com duas sessões não pode ser a primeira coisa que se vê.
-  const alvo = sp.pagina ?? comDados.reduce((a, b) => (b.sessions > a.sessions ? b : a)).key;
+  // com duas sessões não pode ser a primeira coisa que se vê. Mas só como
+  // PADRÃO — a escolha é do seletor no cabeçalho.
+  const padrao = comDados.reduce((a, b) => (b.sessions > a.sessions ? b : a)).key;
+  // valida contra a lista da conta: chave inventada na URL cai no padrão em
+  // vez de mostrar tela vazia como se não houvesse dado
+  const alvo = comDados.some(a => a.key === sp.pagina) ? sp.pagina! : padrao;
   const f = await facetas(conta.id, alvo);
 
   // Abre no recorte com mais tráfego, não no primeiro em ordem alfabética.
@@ -31,7 +37,16 @@ export default async function Painel({ searchParams }: { searchParams: Busca }) 
   const disp = sp.disp && f.devices.includes(sp.disp) ? sp.disp : maior?.device ?? 'mobile';
 
   const dados = await leitura(conta.id, alvo, versao, disp);
-  if (!dados || !dados.steps.length) return <VazioInicial chave={await siteKey(conta.id)} />;
+
+  /* Vídeo solto não gera etapa: a página dele não tem bloco marcado, só o
+     player. Cair no estado de "nenhum dado ainda" seria mentira — o dado
+     existe, só não é de funil por bloco. Manda para a tela que sabe lê-lo. */
+  if (!dados || !dados.steps.length) {
+    const escolhido = comDados.find(a => a.key === alvo);
+    if (escolhido?.kind === 'vsl') redirect(`/painel/videos?pagina=${encodeURIComponent(alvo)}`);
+    if (escolhido?.kind === 'quiz') redirect(`/painel/quiz?pagina=${encodeURIComponent(alvo)}`);
+    return <VazioInicial chave={await siteKey(conta.id)} />;
+  }
 
   const pior = dados.steps.find(s => s.step === dados.worst);
 
@@ -41,17 +56,24 @@ export default async function Painel({ searchParams }: { searchParams: Busca }) 
         <div>
           <p className="mb-2 flex items-center gap-2 text-[12px] text-faint">
             Em coleta há {dados.days} dia{dados.days > 1 ? 's' : ''}
-            <span className="chip">{comDados.length} {comDados.length === 1 ? 'página' : 'páginas'}</span>
+            <span className="chip">{comDados.length} {comDados.length === 1 ? 'oferta' : 'ofertas'}</span>
           </p>
           <h1 className="text-[34px] font-bold leading-none tracking-tight">
             Onde o funil está sangrando
           </h1>
           <p className="mt-2 text-[13.5px] text-muted">
-            <span className="font-mono text-ink">{dados.page}</span> · {dados.steps.length} blocos
+            {dados.steps.length} {dados.kind === 'quiz' ? 'perguntas' : 'blocos'}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <span className="mb-1.5 block text-[11px] uppercase tracking-wider text-faint">Oferta</span>
+            <SeletorAtivo
+              atual={alvo}
+              itens={comDados.map(a => ({ key: a.key, kind: a.kind, sessions: a.sessions }))}
+            />
+          </div>
           <PillFiltro param="versao" rotulo="Versão" valor={versao}
                       opcoes={f.versions.map(v => ({ valor: v, texto: `v${v}` }))} />
           <PillFiltro param="disp" rotulo="Dispositivo" valor={disp}
@@ -63,7 +85,7 @@ export default async function Painel({ searchParams }: { searchParams: Busca }) 
         <Stat rotulo="Sessões" valor={dados.sessions.toLocaleString('pt-BR')}
               nota={dados.enough ? 'amostra suficiente' : `abaixo de ${dados.min_sample}`}
               alerta={!dados.enough} />
-        <Stat rotulo="Conversão" valor={`${nf(dados.conversion, 2)}%`} nota="da página inteira" />
+        <Stat rotulo="Conversão" valor={`${nf(dados.conversion, 2)}%`} nota={dados.kind === 'quiz' ? 'do quiz inteiro' : 'da página inteira'} />
         <Stat rotulo="Maior gargalo" valor={pior ? `${nf(pior.drop ?? 0)}%` : '—'}
               nota={dados.worst ?? 'sem gargalo'} destaque />
 

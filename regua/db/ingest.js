@@ -59,7 +59,16 @@ export async function ingest(db, raw) {
   try {
     await c.query('BEGIN');
 
-    const aid = await assetId(c, accountId, assetKey, 'page');
+    /* O tipo do asset vem do que ele MANDA, não de um padrão. Bloco manda em
+       tudo: uma página de vendas com vídeo dentro continua sendo página. Sem
+       bloco, quiz ganha de vídeo, porque o vídeo costuma ser um pedaço do
+       quiz e não o contrário. */
+    const tipo = Array.isArray(p.b) && p.b.length ? 'page'
+               : p.qz && Array.isArray(p.qz.e) && p.qz.e.length ? 'quiz'
+               : Array.isArray(p.vs) && p.vs.length ? 'vsl'
+               : 'page';
+
+    const aid = await assetId(c, accountId, assetKey, tipo);
 
     const found = (await c.query(
       `SELECT id, seq FROM sessions WHERE account_id = $1 AND sid = $2 FOR UPDATE`,
