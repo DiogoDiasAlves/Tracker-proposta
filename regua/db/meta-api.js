@@ -109,7 +109,8 @@ export async function insights(token, adAccountId, { desde, ate }) {
 
   const linhas = [];
   let pagina = 0;
-  while (url && pagina < 50) {              // teto contra laço infinito
+  const TETO = 50;
+  while (url && pagina < TETO) {            // teto contra laço infinito
     const r = await chamar(url, pagina === 0 ? params : {}, pagina === 0 ? null : token);
     for (const d of r.data || []) {
       linhas.push({
@@ -128,5 +129,8 @@ export async function insights(token, adAccountId, { desde, ate }) {
     params = {};
     pagina++;
   }
-  return linhas;
+  /* Importação truncada NÃO pode ser reportada como sincronização limpa: o
+     painel mostraria gasto parcial como se fosse o total. Quem chamou decide
+     o que fazer, mas fica sabendo. */
+  return { linhas, truncado: !!url && pagina >= TETO };
 }

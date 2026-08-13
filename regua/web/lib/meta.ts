@@ -41,7 +41,7 @@ export const metaSalvar = (dados: {
   expiraEm?: Date | null; escopos?: string | null;
 }) => (salvarConexao as (db: unknown, d: typeof dados) => Promise<number>)(db, dados);
 export const metaEscolherConta = (accountId: number, adAccountId: string, nome?: string) =>
-  (escolherContaDeAnuncios as (db: unknown, a: number, id: string, n?: string) => Promise<void>)(
+  (escolherContaDeAnuncios as (db: unknown, a: number, id: string, n?: string) => Promise<boolean>)(
     db, accountId, adAccountId, nome);
 export const metaDesconectar = (accountId: number) => desconectar(db, accountId);
 export const metaContas = contasDeAnuncios;
@@ -69,12 +69,17 @@ export async function metaSincronizar(accountId: number, dias = 30) {
   const iso = (d: Date) => d.toISOString().slice(0, 10);
 
   try {
-    const linhas = await insights(c.token(), c.adAccountId, {
-      desde: iso(desde), ate: iso(ate),
-    });
-    const n = await gravarInsights(db, accountId, linhas);
-    await marcarSync(db, accountId, null);
-    return { linhas: n, desde: iso(desde), ate: iso(ate) };
+    const r = await (insights as (t: string, a: string, p: { desde: string; ate: string })
+      => Promise<{ linhas: unknown[]; truncado: boolean }>)(
+      c.token(), c.adAccountId, { desde: iso(desde), ate: iso(ate) }
+    );
+    const n = await gravarInsights(db, accountId, r.linhas);
+    // truncado vira aviso guardado, não silêncio: gasto parcial exibido como
+    // total é pior que erro visível
+    await marcarSync(db, accountId, r.truncado
+      ? 'importação truncada no limite de páginas — o período pode estar incompleto'
+      : null);
+    return { linhas: n, truncado: r.truncado, desde: iso(desde), ate: iso(ate) };
   } catch (e) {
     await marcarSync(db, accountId, (e as Error).message.slice(0, 400));
     throw e;

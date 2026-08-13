@@ -17,7 +17,7 @@ const brlCentavos = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const nf = (n: number, d = 1) => n.toFixed(d).replace('.', ',');
 
-type Props = { searchParams: Promise<{ ok?: string; erro?: string; escolher?: string; ad?: string }> };
+type Props = { searchParams: Promise<{ ok?: string; erro?: string; escolher?: string; ad?: string; aviso?: string }> };
 
 export default async function Criativos({ searchParams }: Props) {
   const sp = await searchParams;
@@ -40,6 +40,12 @@ export default async function Criativos({ searchParams }: Props) {
     : criativos.find(c => c.sessoes > 0)?.ad_id ?? null;
   const morte = selecionado ? await metaOndeMorre(conta.id, selecionado) : null;
 
+  // Calculado uma vez, não por linha. Espalhar um array grande dentro de
+  // Math.min a cada linha é O(n²) e ainda arrisca estourar a pilha.
+  const cpas = criativos.map(c => c.cpa).filter((v): v is number => v != null);
+  const melhorCpa = cpas.length ? Math.min(...cpas) : null;
+  const piorCpa = cpas.length ? Math.max(...cpas) : null;
+
   return (
     <div className="space-y-5">
       <Cabecalho
@@ -55,7 +61,11 @@ export default async function Criativos({ searchParams }: Props) {
             ? 'Faltam META_APP_ID e META_APP_SECRET no ambiente.'
             : sp.erro === 'estado-invalido'
               ? 'A volta da Meta não conferiu com o pedido que saiu daqui. Tente conectar de novo.'
-              : decodeURIComponent(sp.erro)}
+              : sp.erro === 'conta-invalida' ? 'Identificador de conta de anúncios inválido.'
+              : sp.erro === 'sem-conexao-ativa' ? 'A conexão expirou antes da escolha. Conecte de novo.'
+              /* já vem decodificado pelo Next: decodificar de novo estoura
+                 URIError em qualquer mensagem que contenha % */
+              : sp.erro}
         </div>
       )}
       {sp.ok && (
@@ -63,6 +73,11 @@ export default async function Criativos({ searchParams }: Props) {
           {sp.ok === 'conectado' ? 'Conta da Meta conectada.'
             : sp.ok === 'desconectado' ? 'Conta desconectada.'
             : `Sincronizado: ${sp.ok.replace('-', ' ')}.`}
+          {sp.aviso === 'truncado' && (
+            <span className="ml-2 text-warn">
+              A importação bateu no limite de páginas — o período pode estar incompleto.
+            </span>
+          )}
         </div>
       )}
 
@@ -120,9 +135,8 @@ export default async function Criativos({ searchParams }: Props) {
                 </thead>
                 <tbody>
                   {criativos.map(c => {
-                    const melhorCpa = Math.min(...criativos.filter(x => x.cpa).map(x => x.cpa!));
-                    const piorCpa = Math.max(...criativos.filter(x => x.cpa).map(x => x.cpa!));
-                    const cor = c.cpa === melhorCpa ? 'var(--color-accent)'
+                    const cor = c.cpa == null ? 'var(--color-ink)'
+                              : c.cpa === melhorCpa ? 'var(--color-accent)'
                               : c.cpa === piorCpa ? 'var(--color-danger)' : 'var(--color-ink)';
                     return (
                       <tr key={c.ad_id}

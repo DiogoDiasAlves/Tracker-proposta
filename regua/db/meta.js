@@ -42,24 +42,43 @@ export function decifrar(guardado) {
 /* ── conexão ──────────────────────────────────────────────────────── */
 
 export async function salvarConexao(db, { accountId, userId, token, expiraEm, escopos }) {
-  await db.query(
-    `UPDATE meta_connections SET revogado_em = now()
-     WHERE account_id = $1 AND revogado_em IS NULL`, [accountId]
-  );
-  const { rows } = await db.query(
-    `INSERT INTO meta_connections (account_id, token_cifrado, token_expira_em, escopos, conectado_por)
-     VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-    [accountId, cifrar(token), expiraEm ?? null, escopos ?? null, userId ?? null]
-  );
-  return rows[0].id;
+  // Cifra ANTES de abrir a transação: se REGUA_SECRET faltar, o erro acontece
+  // sem ter revogado nada.
+  const cifrado = cifrar(token);
+
+  /* Revogar e inserir numa transação só. Solto, uma falha entre os dois
+     deixaria a conta sem conexão nenhuma — pior que o estado anterior. */
+  const c = await db.connect();
+  try {
+    await c.query('BEGIN');
+    await c.query(
+      `UPDATE meta_connections SET revogado_em = now()
+       WHERE account_id = $1 AND revogado_em IS NULL`, [accountId]
+    );
+    const { rows } = await c.query(
+      `INSERT INTO meta_connections (account_id, token_cifrado, token_expira_em, escopos, conectado_por)
+       VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+      [accountId, cifrado, expiraEm ?? null, escopos ?? null, userId ?? null]
+    );
+    await c.query('COMMIT');
+    return rows[0].id;
+  } catch (e) {
+    await c.query('ROLLBACK');
+    throw e;
+  } finally {
+    c.release();
+  }
 }
 
+/** Devolve false quando não há conexão ativa — sem isso a tela diria
+ *  "conectado" tendo gravado nada. */
 export async function escolherContaDeAnuncios(db, accountId, adAccountId, nome) {
-  await db.query(
+  const r = await db.query(
     `UPDATE meta_connections SET ad_account_id = $2, ad_account_name = $3, ultimo_erro = NULL
      WHERE account_id = $1 AND revogado_em IS NULL`,
     [accountId, adAccountId, nome ?? null]
   );
+  return r.rowCount > 0;
 }
 
 export async function conexao(db, accountId) {
@@ -105,10 +124,16 @@ export async function marcarSync(db, accountId, erro = null) {
  *  sobrescreve, o que é o comportamento certo — a Meta revisa números
  *  retroativamente por até alguns dias. */
 export async function gravarInsights(db, accountId, linhas) {
+  /* Uma transação para o lote inteiro. Solto, uma falha no meio deixaria
+     metade do período importado e metade não — e o painel mostraria um gasto
+     que não corresponde a período nenhum. */
+  const c = await db.connect();
   let n = 0;
+  try {
+    await c.query('BEGIN');
   for (const l of linhas) {
     if (!l.ad_id || !l.dia) continue;
-    await db.query(`
+    await c.query(`
       INSERT INTO meta_ad_insights (account_id, dia, ad_id, adset_id, campaign_id,
         ad_name, adset_name, campaign_name, impressoes, cliques, alcance, gasto,
         frequencia, acoes, atualizado_em)
@@ -128,7 +153,14 @@ export async function gravarInsights(db, accountId, linhas) {
     );
     n++;
   }
-  return n;
+    await c.query('COMMIT');
+    return n;
+  } catch (e) {
+    await c.query('ROLLBACK');
+    throw e;
+  } finally {
+    c.release();
+  }
 }
 
 /* ── a junção ─────────────────────────────────────────────────────────
@@ -139,8 +171,17 @@ export async function gravarInsights(db, accountId, linhas) {
    conta clique, a Régua conta carregamento de página, e bloqueador come
    parte. A diferença entre eles é informação, não erro a esconder.        */
 export async function criativos(db, accountId, { desde = null, ate = null } = {}) {
-  const filtroDia = desde && ate ? 'AND i.dia BETWEEN $2 AND $3' : '';
-  const args = desde && ate ? [accountId, desde, ate] : [accountId];
+  /* O período precisa valer para os DOIS lados. Filtrar só o gasto e somar
+     sessões de sempre produziria um CPA que mistura sete dias de gasto com
+     três meses de conversão — um número que não existe.
+
+     E os dois limites precisam vir juntos: com só um deles a versão anterior
+     descartava o filtro em silêncio e mostrava o período inteiro. */
+  const periodo = desde && ate;
+  const filtroDia = periodo ? 'AND i.dia BETWEEN $2 AND $3' : '';
+  const filtroSessao = periodo
+    ? 'AND s.started_at >= $2::date AND s.started_at < ($3::date + 1)' : '';
+  const args = periodo ? [accountId, desde, ate] : [accountId];
 
   const { rows } = await db.query(`
     WITH meta AS (
@@ -160,7 +201,7 @@ export async function criativos(db, accountId, { desde = null, ate = null } = {}
              COUNT(*) FILTER (WHERE s.converted)::int AS conversoes,
              COUNT(DISTINCT s.asset_id)::int AS paginas
       FROM sessions s
-      WHERE s.account_id = $1 AND s.ad_id IS NOT NULL
+      WHERE s.account_id = $1 AND s.ad_id IS NOT NULL ${filtroSessao}
       GROUP BY s.ad_id
     )
     SELECT COALESCE(m.ad_id, r.ad_id) AS ad_id,
