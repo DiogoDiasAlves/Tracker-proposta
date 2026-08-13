@@ -137,9 +137,9 @@ export async function gravarInsights(db, accountId, linhas) {
       INSERT INTO meta_ad_insights (account_id, dia, ad_id, adset_id, campaign_id,
         ad_name, adset_name, campaign_name, impressoes, cliques, alcance, gasto,
         frequencia, acoes, views_3s, thruplays, v25, v50, v75, v100,
-        compras, receita, thumb_url, video_id, atualizado_em)
+        compras, receita, thumb_url, video_id, video_url, atualizado_em)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
-              $15,$16,$17,$18,$19,$20,$21,$22,$23,$24, now())
+              $15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25, now())
       ON CONFLICT (account_id, dia, ad_id) DO UPDATE SET
         adset_id = EXCLUDED.adset_id, campaign_id = EXCLUDED.campaign_id,
         ad_name = EXCLUDED.ad_name, adset_name = EXCLUDED.adset_name,
@@ -152,13 +152,14 @@ export async function gravarInsights(db, accountId, linhas) {
         compras = EXCLUDED.compras, receita = EXCLUDED.receita,
         thumb_url = COALESCE(EXCLUDED.thumb_url, meta_ad_insights.thumb_url),
         video_id = COALESCE(EXCLUDED.video_id, meta_ad_insights.video_id),
+        video_url = COALESCE(EXCLUDED.video_url, meta_ad_insights.video_url),
         atualizado_em = now()`,
       [accountId, l.dia, l.ad_id, l.adset_id ?? null, l.campaign_id ?? null,
        l.ad_name ?? null, l.adset_name ?? null, l.campaign_name ?? null,
        l.impressoes ?? 0, l.cliques ?? 0, l.alcance ?? 0, l.gasto ?? 0,
        l.frequencia ?? null, l.acoes ? JSON.stringify(l.acoes) : null,
        l.views_3s ?? 0, l.thruplays ?? 0, l.v25 ?? 0, l.v50 ?? 0, l.v75 ?? 0, l.v100 ?? 0,
-       l.compras ?? 0, l.receita ?? 0, l.thumb ?? null, l.videoId ?? null]
+       l.compras ?? 0, l.receita ?? 0, l.thumb ?? null, l.videoId ?? null, l.videoUrl ?? null]
     );
     n++;
   }
@@ -199,6 +200,7 @@ export async function criativos(db, accountId, { desde = null, ate = null } = {}
              MAX(i.campaign_name) AS campaign_name,
              MAX(i.thumb_url) AS thumb_url,
              MAX(i.video_id) AS video_id,
+             MAX(i.video_url) AS video_url,
              SUM(i.impressoes)::bigint AS impressoes,
              SUM(i.cliques)::bigint AS cliques,
              SUM(i.gasto)::numeric AS gasto,
@@ -223,7 +225,7 @@ export async function criativos(db, accountId, { desde = null, ate = null } = {}
     )
     SELECT COALESCE(m.ad_id, r.ad_id) AS ad_id,
            m.ad_name, m.campaign_name,
-           m.thumb_url, m.video_id,
+           m.thumb_url, m.video_id, m.video_url,
            COALESCE(m.impressoes, 0) AS impressoes,
            COALESCE(m.cliques, 0) AS cliques,
            COALESCE(m.gasto, 0)::float AS gasto,
@@ -251,6 +253,7 @@ export async function criativos(db, accountId, { desde = null, ate = null } = {}
     campanha: r.campaign_name,
     thumb: r.thumb_url,
     video_id: r.video_id,
+    video_url: r.video_url,
     impressoes: imp,
     cliques: cli,
     gasto: r.gasto,

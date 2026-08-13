@@ -59,7 +59,6 @@ for (const c of CRIATIVOS) {
       v25: Math.round(v3 * .62), v50: Math.round(v3 * .34),
       v75: Math.round(v3 * .19), v100: Math.round(v3 * .12),
       compras, receita: Number((compras * c.ticket).toFixed(2)),
-      thumb: `https://exemplo.invalido/thumb/${c.id}.jpg`,
       videoId: '9' + c.id,
       dia, ad_id: c.id,
       adset_id: '99' + c.id.slice(-3), campaign_id: '77' + c.id.slice(-3),

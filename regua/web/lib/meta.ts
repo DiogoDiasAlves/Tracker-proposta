@@ -10,6 +10,7 @@ const marcarSync = marcarSyncJs as
   (db: unknown, accountId: number, erro: string | null) => Promise<void>;
 import {
   configurado, config, urlAutorizacao, trocarCodigo, contasDeAnuncios, insights,
+  criativosDosAnuncios, fontesDeVideo,
 } from '@regua/db/meta-api';
 
 export type Conexao = {
@@ -20,7 +21,7 @@ export type Conexao = {
 
 export type Criativo = {
   ad_id: string; nome: string; campanha: string | null;
-  thumb: string | null; video_id: string | null;
+  thumb: string | null; video_id: string | null; video_url: string | null;
   impressoes: number; cliques: number; gasto: number;
 
   /* retenção do ANÚNCIO no feed — a metade do funil que vem antes do clique */
@@ -83,7 +84,32 @@ export async function metaSincronizar(accountId: number, dias = 30) {
       => Promise<{ linhas: unknown[]; truncado: boolean }>)(
       c.token(), c.adAccountId, { desde: iso(desde), ate: iso(ate) }
     );
-    const n = await gravarInsights(db, accountId, r.linhas);
+    /* Criativo e vídeo vêm depois: são por anúncio, não por dia, e falhar
+       aqui não pode invalidar os números já baixados — miniatura ausente é
+       cosmético, gasto ausente não é. */
+    type Linha = { ad_id: string; thumb?: string; videoId?: string; videoUrl?: string };
+    const linhas = r.linhas as Linha[];
+    try {
+      const ids = [...new Set(linhas.map(l => l.ad_id))];
+      const criativos = await (criativosDosAnuncios as
+        (t: string, a: string, ids: string[]) => Promise<Record<string, { thumb: string | null; videoId: string | null }>>)(
+        c.token(), c.adAccountId, ids);
+      const fontes = await (fontesDeVideo as
+        (t: string, v: string[]) => Promise<Record<string, { url: string }>>)(
+        c.token(), Object.values(criativos).map(x => x.videoId).filter((v): v is string => !!v));
+
+      for (const l of linhas) {
+        const cr = criativos[l.ad_id];
+        if (!cr) continue;
+        if (cr.thumb) l.thumb = cr.thumb;
+        if (cr.videoId) {
+          l.videoId = cr.videoId;
+          if (fontes[cr.videoId]) l.videoUrl = fontes[cr.videoId].url;
+        }
+      }
+    } catch { /* segue com os números, sem capa */ }
+
+    const n = await gravarInsights(db, accountId, linhas);
     // truncado vira aviso guardado, não silêncio: gasto parcial exibido como
     // total é pior que erro visível
     await marcarSync(db, accountId, r.truncado

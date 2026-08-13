@@ -97,6 +97,19 @@ export async function criativosDosAnuncios(token, adAccountId, adIds = []) {
   return out;
 }
 
+/** Fonte tocável de cada vídeo. Pode não vir — vídeo de página que não é do
+ *  anunciante não expõe `source`. Falha de um não pode derrubar os outros. */
+export async function fontesDeVideo(token, videoIds = []) {
+  const out = {};
+  for (const id of [...new Set(videoIds.filter(Boolean))].slice(0, 100)) {
+    try {
+      const r = await chamar(String(id), { fields: 'source,picture' }, token);
+      if (r.source) out[id] = { url: r.source, capa: r.picture ?? null };
+    } catch { /* sem permissão nesse vídeo: segue sem player */ }
+  }
+  return out;
+}
+
 export async function contasDeAnuncios(token) {
   const r = await chamar('me/adaccounts', {
     fields: 'id,account_id,name,currency,account_status', limit: 100,

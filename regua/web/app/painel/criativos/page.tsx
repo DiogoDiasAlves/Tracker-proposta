@@ -194,50 +194,9 @@ export default async function Criativos({ searchParams }: Props) {
 
           {selecionado && (() => {
             const c = criativos.find(x => x.ad_id === selecionado);
-            return c ? <FichaCriativo c={c} /> : null;
+            return c ? <FichaCriativo c={c} morte={morte} /> : null;
           })()}
 
-          {morte && (
-            <section className="card overflow-hidden">
-              <div className="border-b border-line px-5 py-4">
-                <h2 className="text-[13px] uppercase tracking-wider text-muted">
-                  Onde o tráfego deste criativo morre
-                </h2>
-                <p className="mt-1 text-[11.5px] text-faint">
-                  <span className="font-mono text-muted">
-                    {criativos.find(c => c.ad_id === selecionado)?.nome}
-                  </span>{' '}
-                  · {morte.base} sessões em <span className="font-mono">{morte.pagina}</span>
-                </p>
-              </div>
-
-              <div className="divide-y divide-line-soft">
-                {morte.etapas.map((e, i) => (
-                  <div key={e.step} className="flex items-center gap-4 px-5 py-2.5">
-                    <span className="w-5 text-[11px] tnum text-faint">{i + 1}</span>
-                    <span className="w-40 shrink-0 truncate text-[12.5px] text-ink">{e.step}</span>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-                      <div className="h-full rounded-full bg-accent/70" style={{ width: `${e.reach}%` }} />
-                    </div>
-                    <span className="w-14 text-right text-[12px] tnum text-muted">{nf(e.reach, 0)}%</span>
-                    <span className="w-16 text-right text-[12px] font-semibold tnum"
-                          style={{ color: e.step === morte.pior?.step ? 'var(--color-danger)' : 'var(--color-muted)' }}>
-                      {e.drop === null ? '—' : `−${nf(e.drop, 0)}%`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {morte.pior && (
-                <p className="border-t border-line px-5 py-4 text-[12.5px] leading-relaxed text-muted">
-                  O tráfego deste criativo morre em{' '}
-                  <span className="text-ink">{morte.pior.step}</span>, perdendo{' '}
-                  <span className="text-danger">{nf(morte.pior.drop ?? 0)}%</span>. É esta a
-                  resposta que nem a Meta nem o player têm: as duas param no clique.
-                </p>
-              )}
-            </section>
-          )}
         </>
       ) : (
         <AindaSemColeta
