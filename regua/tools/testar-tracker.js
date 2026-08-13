@@ -11,7 +11,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(join(here, '..', 'tracker', 'r.js'), 'utf8');
+// O bundle, não os fontes: é exatamente o arquivo que vai para a página do
+// cliente. Testar as partes soltas deixaria a concatenação sem cobertura.
+const SRC = readFileSync(join(here, '..', 'dist', 'r.js'), 'utf8');
 
 const VIEWPORT = 800;
 
@@ -42,7 +44,8 @@ function harness(layout, sharedStore) {
     get visibilityState() { return visibility; },
     referrer: '',
     body: {},
-    querySelectorAll: () => blocks,
+    querySelectorAll: sel => (sel === '[data-block]' ? blocks : []),
+    querySelector: sel => (sel === '[data-block]' ? blocks[0] || null : null),
     addEventListener: () => {},
   };
 
@@ -81,7 +84,7 @@ function harness(layout, sharedStore) {
         for (const t of timers) while (t.next <= now) { t.next += t.ms; t.fn(); }
       }
     },
-    state() { return ctx.regua.debug(); },
+    state() { return ctx.regua.debug().page; },
   };
 }
 

@@ -90,7 +90,7 @@ async function serveStatic(res, rel) {
     const buf = await readFile(path);
     const ext = path.slice(path.lastIndexOf('.'));
     send(res, 200, buf, TYPES[ext] || 'application/octet-stream',
-         ext === '.js' && rel.includes('tracker') ? { 'cache-control': 'public, max-age=300' } : {});
+         ext === '.js' && rel.includes('dist') ? { 'cache-control': 'public, max-age=300' } : {});
   } catch {
     send(res, 404, '{"erro":"não encontrado"}');
   }
@@ -149,7 +149,7 @@ const server = createServer(async (req, res) => {
   }
 
   // ── estáticos ───────────────────────────────────────────────────────
-  if (path === '/r.js') return serveStatic(res, 'tracker/r.js');
+  if (path === '/r.js') return serveStatic(res, 'dist/r.js');
   if (path === '/' || path === '/index.html') return serveStatic(res, 'dashboard/index.html');
   if (path.startsWith('/dashboard/') || path.startsWith('/demo/')) return serveStatic(res, path.slice(1));
 

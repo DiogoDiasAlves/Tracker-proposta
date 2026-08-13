@@ -83,8 +83,9 @@
   // Só para esta página de teste: mostra ao vivo o que o tracker está contando.
   setInterval(function () {
     if (!window.regua) return;
+    var p = window.regua.debug().page || [];
     document.getElementById('hud').innerHTML =
-      '<b>tracker ao vivo</b><br>' + window.regua.debug()
+      '<b>tracker ao vivo</b><br>' + p
         .map(function (b) { return (b.visto ? '● ' : '○ ') + b.bloco + ' — ' + b.tempo_s + 's · ' + b.entradas + 'x'; })
         .join('<br>');
   }, 500);

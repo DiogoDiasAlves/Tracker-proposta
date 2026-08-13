@@ -124,7 +124,7 @@ async function main() {
     await cdp.eval(`window.scrollTo(0, ${Math.round(alturas * frac)})`);
     await sleep(1300);
   }
-  const estado = await cdp.eval('JSON.stringify(window.regua.debug())');
+  const estado = await cdp.eval('JSON.stringify(window.regua.debug().page)');
   const vistos = JSON.parse(estado).filter(b => b.visto);
   ok('blocos qualificaram durante a rolagem', vistos.length >= 5,
      `${vistos.length} de 11 vistos: ${vistos.map(b => b.bloco).join(', ')}`);

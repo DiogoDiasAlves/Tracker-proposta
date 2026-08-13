@@ -6,8 +6,11 @@
   "private": true,
   "engines": { "node": ">=22.5" },
   "scripts": {
+    "build": "node tracker/build.js",
+    "prestart": "npm run build",
     "start": "node server/index.js",
     "simular": "node tools/simular.js",
+    "pretestar": "npm run build",
     "testar": "node tools/testar-tracker.js",
     "testar:navegador": "node tools/testar-navegador.js"
   }
