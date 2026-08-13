@@ -87,13 +87,19 @@ export async function assetId(db, accountId, key, kind = 'page') {
   return rows[0].id;
 }
 
+/* Ordenado por VOLUME, não por atividade recente.
+
+   Isto já foi corrigido pontualmente em quatro telas, sempre pelo mesmo
+   motivo: cada uma abria no primeiro item da lista, e o primeiro era o mais
+   recente — em geral uma página de teste com duas sessões. Ordenar por
+   sessões aqui resolve na origem, e qualquer tela nova nasce certa. */
 export async function listAssets(db, accountId) {
   const { rows } = await db.query(`
     SELECT a.key, a.kind, a.name, COUNT(s.id)::int AS sessions,
            MAX(s.last_seen_at) AS last
     FROM assets a LEFT JOIN sessions s ON s.asset_id = a.id
     WHERE a.account_id = $1
-    GROUP BY a.id ORDER BY last DESC NULLS LAST
+    GROUP BY a.id ORDER BY sessions DESC, last DESC NULLS LAST
   `, [accountId]);
   return rows;
 }

@@ -19,10 +19,17 @@ export default async function Painel({ searchParams }: { searchParams: Busca }) 
 
   if (!comDados.length) return <VazioInicial chave={await siteKey(conta.id)} />;
 
-  // Abre na página com mais tráfego, não na mais recente: uma página de teste
-  // com duas sessões não pode ser a primeira coisa que se vê. Mas só como
-  // PADRÃO — a escolha é do seletor no cabeçalho.
-  const padrao = comDados.reduce((a, b) => (b.sessions > a.sessions ? b : a)).key;
+  /* Padrão: o maior ativo QUE ESTA TELA SABE MOSTRAR.
+
+     A lista já vem ordenada por volume, mas o maior pode ser um VSL puro —
+     que não tem bloco e é redirecionado para a tela de vídeo. Como padrão
+     isso faria "Painel" levar a "Vídeos", e navegação que não leva aonde a
+     pessoa clicou é pior que abrir num ativo menor.
+
+     O redirecionamento continua valendo quando a escolha é EXPLÍCITA, pelo
+     seletor ou pela URL — aí a pessoa pediu aquele ativo, e levá-la à tela
+     que sabe lê-lo é ajudar, não desviar. */
+  const padrao = (comDados.find(a => a.kind !== 'vsl') ?? comDados[0]).key;
   // valida contra a lista da conta: chave inventada na URL cai no padrão em
   // vez de mostrar tela vazia como se não houvesse dado
   const alvo = comDados.some(a => a.key === sp.pagina) ? sp.pagina! : padrao;

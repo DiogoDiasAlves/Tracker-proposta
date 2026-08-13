@@ -2,6 +2,7 @@ import { ativos, facetas, quiz, leitura, leadsQuiz, siteKey } from '@/lib/dados'
 import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, AindaSemColeta } from '@/components/ui/estados';
 import { PillFiltro } from '@/components/ui/pill-filtro';
+import { SeletorAtivo } from '@/components/ui/seletor-ativo';
 import { TEXTO, faixaQueda } from '@/lib/faixas';
 import { TopoFunil, MetasOtimizacao } from '@/components/painel/metas-quiz';
 import { TabelaLeads } from '@/components/painel/tabela-leads';
@@ -17,14 +18,17 @@ export default async function Quiz({ searchParams }: Props) {
   const { conta } = await exigirConta();
   const lista = (await ativos(conta.id)).filter(a => a.sessions > 0);
 
-  const comQuiz: { key: string; versao: string; disp: string; sessoes: number }[] = [];
+  const comQuiz: { key: string; kind: 'page' | 'vsl' | 'quiz'; sessions: number; versao: string; disp: string; sessoes: number }[] = [];
   for (const a of lista) {
     const f = await facetas(conta.id, a.key);
     if (!f.counts.length) continue;
     const maior = f.counts.reduce((x, y) => (y.n > x.n ? y : x), f.counts[0]);
     const q = await quiz(conta.id, a.key, maior.version, maior.device);
     if (q && q.perguntas.length) {
-      comQuiz.push({ key: a.key, versao: maior.version, disp: maior.device, sessoes: a.sessions });
+      comQuiz.push({
+        key: a.key, kind: a.kind, sessions: a.sessions,
+        versao: maior.version, disp: maior.device, sessoes: a.sessions,
+      });
     }
   }
   // Abre no quiz com mais tráfego, não no de atividade mais recente: um quiz
@@ -82,10 +86,12 @@ export default async function Quiz({ searchParams }: Props) {
             {q.sessoes.toLocaleString('pt-BR')} sessões · {q.perguntas.length} perguntas
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           {comQuiz.length > 1 && (
-            <PillFiltro param="pagina" rotulo="Quiz" valor={alvo.key}
-                        opcoes={comQuiz.map(c => ({ valor: c.key, texto: c.key }))} />
+            <div>
+              <span className="mb-1.5 block text-[11px] uppercase tracking-wider text-faint">Quiz</span>
+              <SeletorAtivo atual={alvo.key} itens={comQuiz} />
+            </div>
           )}
           <PillFiltro param="versao" rotulo="Versão" valor={versao}
                       opcoes={f.versions.map(x => ({ valor: x, texto: `v${x}` }))} />

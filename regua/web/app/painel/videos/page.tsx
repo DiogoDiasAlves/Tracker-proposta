@@ -2,6 +2,7 @@ import { ativos, facetas, videos, siteKey } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, AindaSemColeta } from '@/components/ui/estados';
 import { PillFiltro } from '@/components/ui/pill-filtro';
+import { SeletorAtivo } from '@/components/ui/seletor-ativo';
 import { CurvaVideo } from '@/components/graficos/curva-video';
 
 export const metadata = { title: 'Vídeos — Régua' };
@@ -18,7 +19,10 @@ export default async function Videos({ searchParams }: Props) {
 
   // Vídeo não é um tipo de página à parte: ele vive DENTRO de uma. Então
   // procuramos em quais assets há reprodução, em vez de filtrar por kind.
-  const comVideo: { key: string; dados: NonNullable<Awaited<ReturnType<typeof videos>>>; versao: string; disp: string }[] = [];
+  const comVideo: {
+    key: string; kind: 'page' | 'vsl' | 'quiz'; sessions: number;
+    dados: NonNullable<Awaited<ReturnType<typeof videos>>>; versao: string; disp: string;
+  }[] = [];
   for (const a of lista) {
     const f = await facetas(conta.id, a.key);
     if (!f.counts.length) continue;
@@ -26,7 +30,9 @@ export default async function Videos({ searchParams }: Props) {
     const versao = sp.versao && f.versions.includes(sp.versao) ? sp.versao : maior.version;
     const disp = sp.disp && f.devices.includes(sp.disp) ? sp.disp : maior.device;
     const d = await videos(conta.id, a.key, versao, disp);
-    if (d && d.videos.length) comVideo.push({ key: a.key, dados: d, versao, disp });
+    if (d && d.videos.length) {
+      comVideo.push({ key: a.key, kind: a.kind, sessions: a.sessions, dados: d, versao, disp });
+    }
   }
 
   if (!comVideo.length) {
@@ -68,10 +74,12 @@ export default async function Videos({ searchParams }: Props) {
             {v.sessoes_com_play.toLocaleString('pt-BR')} sessões com play
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           {comVideo.length > 1 && (
-            <PillFiltro param="pagina" rotulo="Página" valor={alvo.key}
-                        opcoes={comVideo.map(c => ({ valor: c.key, texto: c.key }))} />
+            <div>
+              <span className="mb-1.5 block text-[11px] uppercase tracking-wider text-faint">Página</span>
+              <SeletorAtivo atual={alvo.key} itens={comVideo} />
+            </div>
           )}
           <PillFiltro param="versao" rotulo="Versão" valor={alvo.versao}
                       opcoes={f.versions.map(x => ({ valor: x, texto: `v${x}` }))} />
