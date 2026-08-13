@@ -141,6 +141,46 @@ export async function ingest(db, raw) {
       }
     }
 
+    // Quiz. As etapas entram em step_stats como qualquer outro funil; o que é
+    // específico é a resposta escolhida.
+    if (p.qz && Array.isArray(p.qz.e) && p.qz.e.length) {
+      for (const e of p.qz.e.slice(0, 100)) {
+        const passo = label(e.i);
+        if (!passo) continue;
+        await c.query(`
+          INSERT INTO step_stats (session_id, step, ord, height, dwell_ms, entries)
+          VALUES ($1,$2,$3,$4,$5,$6)
+          ON CONFLICT (session_id, step) DO UPDATE SET
+            ord = EXCLUDED.ord, height = EXCLUDED.height,
+            dwell_ms = EXCLUDED.dwell_ms, entries = EXCLUDED.entries`,
+          [sessionId, passo, clampInt(e.o, 0, 999), clampInt(e.h, 0, 200000),
+           clampInt(e.t, 0, 6 * 3600 * 1000), clampInt(e.e, 0, 10000)]
+        );
+      }
+
+      // `label` só aceita chave curta sem espaço. Texto digitado nunca passa
+      // por aqui — e se algum dia o coletor mandasse, este filtro barraria.
+      for (const r of (p.qz.r || []).slice(0, 100)) {
+        const pergunta = label(r.q), opcao = label(r.o);
+        if (!pergunta || !opcao) continue;
+        await c.query(`
+          INSERT INTO quiz_answers (session_id, pergunta, opcao, em)
+          VALUES ($1,$2,$3, to_timestamp($4/1000.0))
+          ON CONFLICT (session_id, pergunta) DO UPDATE SET
+            opcao = EXCLUDED.opcao, em = EXCLUDED.em`,
+          [sessionId, pergunta, opcao, clampInt(r.t, 0, 4e12)]
+        );
+      }
+
+      if (p.qz.c || p.qz.l) {
+        await c.query(
+          `UPDATE sessions SET quiz_completo = quiz_completo OR $1,
+                               quiz_lead = quiz_lead OR $2 WHERE id = $3`,
+          [!!p.qz.c, !!p.qz.l, sessionId]
+        );
+      }
+    }
+
     if (p.x) {
       await c.query('UPDATE sessions SET exit_step = $1, exit_via_cta = $2 WHERE id = $3',
                     [label(p.x.b), !!p.x.cta, sessionId]);

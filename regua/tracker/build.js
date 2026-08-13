@@ -17,7 +17,7 @@ const root = join(here, '..');
 
 // A ordem importa: o núcleo declara o que os coletores usam, e `start()`
 // só roda depois que todos se registraram.
-const PARTES = ['core.js', 'page.js', 'vsl.js'];
+const PARTES = ['core.js', 'page.js', 'vsl.js', 'quiz.js'];
 
 const CABECALHO = `/*!
  * Régua — tracking de funil por etapa

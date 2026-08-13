@@ -14,7 +14,9 @@
     "simular": "node tools/simular.js",
     "pretestar": "npm run build",
     "testar": "node tools/testar-tracker.js",
-    "testar:navegador": "node tools/testar-navegador.js"
+    "testar:navegador": "node tools/testar-navegador.js",
+    "testar:quiz": "node tools/testar-quiz.js",
+    "testar:real": "node tools/testar-pagina-real.js"
   },
   "dependencies": {
     "pg": "^8.23.0"
