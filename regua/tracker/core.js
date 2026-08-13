@@ -25,6 +25,11 @@ if (!script) return;
 var PAGE = script.getAttribute('data-page');
 if (!PAGE) return console.warn('[regua] data-page ausente; nada será coletado.');
 
+// Chave pública da conta. Não autoriza leitura de nada — só diz de qual conta
+// é o evento que está chegando. Pode ficar exposta no HTML sem problema.
+var KEY = script.getAttribute('data-key');
+if (!KEY) return console.warn('[regua] data-key ausente; nada será coletado.');
+
 var VERSION = script.getAttribute('data-version') || '1';
 var ENDPOINT = script.getAttribute('data-endpoint') ||
                new URL(script.src, location.href).origin;
@@ -167,7 +172,7 @@ function referrerHost() {
 
 function payload(final) {
   var out = {
-    s: sid, p: PAGE, v: VERSION, d: isMobile ? 'mobile' : 'desktop', n: ++seq
+    s: sid, k: KEY, p: PAGE, v: VERSION, d: isMobile ? 'mobile' : 'desktop', n: ++seq
   };
 
   for (var i = 0; i < active.length; i++) {

@@ -1,0 +1,14 @@
+# Postgres de desenvolvimento. Em produção use um gerenciado (Neon, Supabase,
+# RDS) — o que importa é a DATABASE_URL.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: regua-pg
+    environment:
+      POSTGRES_USER: regua
+      POSTGRES_PASSWORD: regua
+      POSTGRES_DB: regua
+    ports: ["55432:5432"]
+    volumes: ["regua-pg:/var/lib/postgresql/data"]
+volumes:
+  regua-pg:

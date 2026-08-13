@@ -2,16 +2,21 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { open, listPages, facets } from './db.js';
-import { ingest, convert } from './ingest.js';
-import { compute, comparison } from './metrics.js';
+import { pool, migrate, listAssets, facets, DATABASE_URL } from '../db/index.js';
+import { ingest, convert } from '../db/ingest.js';
+import { compute, comparison } from '../db/metrics.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
 const PORT = Number(process.env.PORT || 8787);
-const DB_FILE = process.env.REGUA_DB || join(ROOT, 'data', 'regua.db');
 
-const db = open(DB_FILE);
+const db = pool();
+
+// Enquanto o painel novo não tem login, o servidor opera sobre uma conta só.
+// A resolução por site key já acontece na coleta — é só a leitura que ainda
+// não pergunta quem é você, e é o que o app Next.js vai resolver.
+const CONTA = process.env.REGUA_ACCOUNT || 'diogo';
+let accountId = null;
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -112,7 +117,7 @@ const server = createServer(async (req, res) => {
   if (path === '/e' && req.method === 'POST') {
     if (!allow(req)) return send(res, 429, '{"erro":"excesso de requisições"}');
     try {
-      ingest(db, await readBody(req));
+      await ingest(db, await readBody(req));
       return send(res, 204, '');
     } catch (e) {
       return send(res, 400, JSON.stringify({ erro: e.message }));
@@ -121,7 +126,7 @@ const server = createServer(async (req, res) => {
 
   // ── conversão reportada de fora da página ───────────────────────────
   if (path === '/c' || path === '/c.gif') {
-    const ok = convert(db, url.searchParams.get('s') || url.searchParams.get('rg_s'));
+    const ok = await convert(db, url.searchParams.get('s') || url.searchParams.get('rg_s'));
     if (path === '/c.gif') {
       return send(res, 200, PIXEL, 'image/gif', { 'cache-control': 'no-store' });
     }
@@ -129,11 +134,13 @@ const server = createServer(async (req, res) => {
   }
 
   // ── API do painel ───────────────────────────────────────────────────
-  if (path === '/api/pages') return send(res, 200, JSON.stringify(listPages(db)));
+  if (path === '/api/pages') {
+    return send(res, 200, JSON.stringify(await listAssets(db, accountId)));
+  }
 
   if (path === '/api/facets') {
     const p = url.searchParams.get('page');
-    return send(res, 200, JSON.stringify(facets(db, p)));
+    return send(res, 200, JSON.stringify(await facets(db, accountId, p)));
   }
 
   if (path === '/api/metrics') {
@@ -143,7 +150,9 @@ const server = createServer(async (req, res) => {
     const b = url.searchParams.get('compare');
     if (!page) return send(res, 400, '{"erro":"page obrigatório"}');
 
-    const out = b ? comparison(db, page, a, b, device) : compute(db, page, a || '1', device);
+    const out = b
+      ? await comparison(db, accountId, page, a, b, device)
+      : await compute(db, accountId, page, a || '1', device);
     if (!out) return send(res, 404, '{"erro":"página sem dados"}');
     return send(res, 200, JSON.stringify(out));
   }
@@ -156,9 +165,25 @@ const server = createServer(async (req, res) => {
   send(res, 404, '{"erro":"não encontrado"}');
 });
 
+const novas = await migrate(db);
+if (novas.length) console.log(`migrações aplicadas: ${novas.join(', ')}`);
+
+const conta = (await db.query('SELECT id FROM accounts WHERE slug = $1', [CONTA])).rows[0];
+if (!conta) {
+  console.error(`conta "${CONTA}" não existe. Rode: node tools/migrar-sqlite.js`);
+  process.exit(1);
+}
+accountId = conta.id;
+
+const chave = (await db.query(
+  'SELECT site_key FROM api_keys WHERE account_id = $1 AND revoked_at IS NULL LIMIT 1',
+  [accountId]
+)).rows[0];
+
 server.listen(PORT, () => {
   console.log(`Régua rodando em http://localhost:${PORT}`);
   console.log(`  painel   http://localhost:${PORT}/`);
   console.log(`  tracker  http://localhost:${PORT}/r.js`);
-  console.log(`  banco    ${DB_FILE}`);
+  console.log(`  conta    ${CONTA} (#${accountId}) · site key ${chave?.site_key || '(nenhuma)'}`);
+  console.log(`  banco    ${DATABASE_URL.replace(/:[^:@]+@/, ':***@')}`);
 });

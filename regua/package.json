@@ -4,7 +4,9 @@
   "description": "Mapa de retenção por bloco para páginas de vendas",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=22.5" },
+  "engines": {
+    "node": ">=22.5"
+  },
   "scripts": {
     "build": "node tracker/build.js",
     "prestart": "npm run build",
@@ -13,5 +15,8 @@
     "pretestar": "npm run build",
     "testar": "node tools/testar-tracker.js",
     "testar:navegador": "node tools/testar-navegador.js"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
   }
 }

@@ -7,6 +7,7 @@
 
 const URL_BASE = process.argv[2] || 'http://localhost:8787';
 const N = Number(process.argv[3] || 1200);
+const SITE_KEY = process.env.REGUA_KEY || 'rg_diogo';
 
 const BLOCKS = [
   { id: 'hero',          h: 720,  keep: .74, dwell: 8  },
@@ -76,7 +77,7 @@ async function session(i, version, device, fix) {
     if (Math.random() > keep) break;      // abandonou aqui
   }
 
-  const base = { s: sid, p: 'oferta-relogio-uk', v: version, d: device };
+  const base = { s: sid, k: SITE_KEY, p: 'oferta-relogio-uk', v: version, d: device };
 
   await post({ ...base, n: 1, b: blocks,
     st: { us: Math.random() < .7 ? 'meta' : 'google', um: 'cpc', uc: 'campanha-1',

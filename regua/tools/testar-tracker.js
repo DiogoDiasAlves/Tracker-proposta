@@ -36,7 +36,10 @@ function harness(layout, sharedStore) {
 
   const script = {
     src: 'http://localhost:8787/r.js',
-    getAttribute: k => ({ 'data-page': 'teste', 'data-version': '1', 'data-endpoint': null }[k] ?? null),
+    getAttribute: k => ({
+      'data-key': 'rg_teste', 'data-page': 'teste',
+      'data-version': '1', 'data-endpoint': null,
+    }[k] ?? null),
   };
 
   const doc = {
