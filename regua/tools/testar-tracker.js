@@ -17,7 +17,24 @@ const SRC = readFileSync(join(here, '..', 'dist', 'r.js'), 'utf8');
 
 const VIEWPORT = 800;
 
-function harness(layout, sharedStore) {
+/* Vídeo falso com posição controlável. O <video> real do navegador não deixa
+   você posicionar o relógio com precisão, e a conta que precisa ser provada
+   aqui é justamente qual segundo entrou em qual faixa. */
+export function videoFalso({ duracao = 100, id = null } = {}) {
+  return {
+    duration: duracao, currentTime: 0, paused: true, ended: false,
+    readyState: 4, muted: false, autoplay: false, currentSrc: '/vsl-teste.mp4',
+    getAttribute: k => (k === 'data-vsl' ? id : null),
+    hasAttribute: () => false,
+    closest: () => null,
+    tocar() { this.paused = false; return this; },
+    pausar() { this.paused = true; return this; },
+    irPara(s) { this.currentTime = s; return this; },
+    avancar(s) { this.currentTime += s; return this; },
+  };
+}
+
+function harness(layout, sharedStore, videosFalsos = []) {
   let scrollY = 0;
   let visibility = 'visible';
   const timers = [];
@@ -47,8 +64,10 @@ function harness(layout, sharedStore) {
     get visibilityState() { return visibility; },
     referrer: '',
     body: {},
-    querySelectorAll: sel => (sel === '[data-block]' ? blocks : []),
-    querySelector: sel => (sel === '[data-block]' ? blocks[0] || null : null),
+    querySelectorAll: sel => (sel === '[data-block]' ? blocks
+                            : sel === 'video' ? videosFalsos : []),
+    querySelector: sel => (sel === '[data-block]' ? blocks[0] || null
+                         : sel === 'video' ? videosFalsos[0] || null : null),
     addEventListener: () => {},
   };
 
@@ -87,7 +106,7 @@ function harness(layout, sharedStore) {
         for (const t of timers) while (t.next <= now) { t.next += t.ms; t.fn(); }
       }
     },
-    state() { return ctx.regua.debug().page; },
+    state(qual = 'page') { return ctx.regua.debug()[qual] ?? []; },
   };
 }
 
@@ -176,6 +195,56 @@ console.log('\nrecarregar a página (F5) — a proposta promete que não cria se
   const seq2 = depois.sent[depois.sent.length - 1].n;
   ok('o contador de lotes não regride', seq2 > seq1,
      `n=${seq1} antes, n=${seq2} depois — se regredisse, o servidor descartaria tudo`);
+}
+
+console.log('\nvídeo — descoberto sozinho, sem nenhuma marcação');
+{
+  const v = videoFalso({ duracao: 100 });
+  const h = harness(LAYOUT, null, [v]);
+  ok('achou o vídeo sem data-vsl', h.state('vsl').length === 1,
+     h.state('vsl')[0]?.video);
+
+  // assiste do segundo 0 ao 10, um segundo de vídeo por tick
+  v.tocar();
+  for (let s = 0; s < 10; s++) { v.irPara(s); h.advance(200); }
+  ok('conta play ao começar', h.state('vsl')[0].plays === 1);
+  ok('acumula os segundos assistidos', h.state('vsl')[0].assistido_s === 10,
+     `${h.state('vsl')[0].assistido_s} segundos`);
+
+  // pausa: nada pode acumular
+  const antes = h.state('vsl')[0].assistido_s;
+  v.pausar();
+  h.advance(5000);
+  ok('pausado não acumula', h.state('vsl')[0].assistido_s === antes);
+
+  // volta para o segundo 5 e reassiste até o 8
+  v.tocar();
+  for (let s = 5; s < 8; s++) { v.irPara(s); h.advance(200); }
+  ok('voltar conta como novo play', h.state('vsl')[0].plays === 2,
+     `plays=${h.state('vsl')[0].plays}`);
+
+  h.advance(10000);  // dispara envio
+  const env = h.sent[h.sent.length - 1].vs[0];
+  ok('faixa assistida chega comprimida', JSON.stringify(env.r) === '[[0,10]]',
+     JSON.stringify(env.r));
+  ok('trecho revisto sai separado', JSON.stringify(env.rr) === '[[5,8]]',
+     JSON.stringify(env.rr) + ' — voltou e reviu do 5 ao 8');
+  ok('marca a posição mais funda alcançada', env.m === 9, `max=${env.m}`);
+  ok('não marcou como parcial', env.pa === 0);
+}
+
+console.log('\nvídeo — player que não expõe a posição');
+{
+  const cego = videoFalso({ duracao: 100 });
+  Object.defineProperty(cego, 'currentTime', { get: () => NaN, set: () => {} });
+  const h = harness(LAYOUT, null, [cego]);
+  cego.tocar();
+  h.advance(3000);
+  h.advance(10000);
+  const env = h.sent[h.sent.length - 1].vs[0];
+  ok('reporta parcial em vez de inventar curva', env.pa === 1);
+  ok('ainda conta o play', env.p >= 1, `plays=${env.p}`);
+  ok('não inventa faixa assistida', JSON.stringify(env.r) === '[]');
 }
 
 console.log('\npayload enviado');

@@ -23,6 +23,19 @@ function clampInt(v, lo, hi) {
  *  {{ad.id}}. É a chave que amarra gasto de criativo a comportamento. */
 const adIdDe = utmContent => (/^\d{6,}$/.test(utmContent || '') ? utmContent : null);
 
+/** Faixas de segundos assistidos. Vêm do navegador, então nada entra sem
+ *  ser conferido: par de inteiros, crescente, dentro de dez horas. */
+function faixas(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const f of v.slice(0, 2000)) {
+    if (!Array.isArray(f) || f.length !== 2) continue;
+    const a = clampInt(f[0], 0, 36000), b = clampInt(f[1], 0, 36000);
+    if (b > a) out.push([a, b]);
+  }
+  return out;
+}
+
 export async function ingest(db, raw) {
   if (raw.length > MAX_BODY) throw new Error('payload grande demais');
 
@@ -102,6 +115,28 @@ export async function ingest(db, raw) {
           `INSERT INTO cta_clicks (session_id, cta, step, at)
            VALUES ($1,$2,$3, to_timestamp($4/1000.0))`,
           [sessionId, cta, label(k.b), clampInt(k.t, 0, 4e12)]
+        );
+      }
+    }
+
+    // Vídeo. Mesma regra dos blocos: totais acumulados, sobrescreve.
+    if (Array.isArray(p.vs) && p.vs.length) {
+      for (const v of p.vs.slice(0, 20)) {
+        const nome = label(v.i);
+        if (!nome) continue;
+        await c.query(`
+          INSERT INTO vsl_playback (session_id, video, tipo, duracao, plays, max_pos,
+                                    faixas, revistas, autoplay, mudo, pitch, parcial)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          ON CONFLICT (session_id, video) DO UPDATE SET
+            tipo = EXCLUDED.tipo, duracao = EXCLUDED.duracao, plays = EXCLUDED.plays,
+            max_pos = EXCLUDED.max_pos, faixas = EXCLUDED.faixas,
+            revistas = EXCLUDED.revistas, autoplay = EXCLUDED.autoplay,
+            mudo = EXCLUDED.mudo, pitch = EXCLUDED.pitch, parcial = EXCLUDED.parcial`,
+          [sessionId, nome, label(v.t), clampInt(v.d, 0, 36000),
+           clampInt(v.p, 0, 10000), clampInt(v.m, 0, 36000),
+           JSON.stringify(faixas(v.r)), JSON.stringify(faixas(v.rr)),
+           !!v.a, !!v.mu, v.pi == null ? null : clampInt(v.pi, 0, 36000), !!v.pa]
         );
       }
     }
