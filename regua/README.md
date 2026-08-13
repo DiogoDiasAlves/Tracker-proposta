@@ -1,46 +1,64 @@
 # Régua
 
-Mapa de retenção por bloco para páginas de vendas.
+Tracking de funil por etapa: página de vendas, vídeo e quiz.
 
 Você vê a conversão final e nada mais, e passa três dias reescrevendo a headline
-quando o problema estava no preço. A Régua mostra o bloco.
+quando o problema estava no preço. A Régua mostra a etapa.
 
-Implementa a proposta em [`../index.html`](../index.html). Onde este código e a
-proposta discordarem, a proposta está certa — é o documento assinado.
+Os três produtos são o mesmo modelo — um funil de etapas ordenadas onde a pessoa
+avança, para, volta e desiste. Só muda o que é etapa e o que é progresso:
+
+| Produto | Etapa | Progresso |
+|---|---|---|
+| Página | bloco | scroll |
+| Vídeo | segundo do vídeo | playback |
+| Quiz | pergunta | responder |
+
+A semântica das métricas de página está em [`../index.html`](../index.html), a
+proposta assinada. Onde este código e ela discordarem, ela está certa.
 
 ---
 
 ## Rodar
 
-Sem dependências. Node 22.5+ (usa o `node:sqlite` nativo).
-
 ```bash
-npm start                       # http://localhost:8787
+docker compose up -d              # Postgres na 55432
+npm install
+npm run dev                       # http://localhost:3100
+node tools/criar-usuario.js você@exemplo.com "sua-senha" "Seu Nome"
 ```
 
 | Endereço | O quê |
 |---|---|
-| `/` | painel |
+| `/painel` | o painel, atrás de login |
 | `/r.js` | tracker, para colar nas páginas |
-| `/demo/pagina-exemplo.html` | página instrumentada para teste |
+| `/e`, `/c`, `/c.gif` | coleta e conversão |
+| `/demo/pagina-exemplo.html` | página instrumentada |
+| `/demo/quiz-exemplo.html` | quiz instrumentado |
 
-Para popular com tráfego sintético e ver o painel com dados:
-
-```bash
-node tools/simular.js http://localhost:8787 1200
-```
-
-Testes:
+Tráfego sintético para ver o painel com volume:
 
 ```bash
-npm run testar             # regra de visibilidade, com DOM simulado e relógio controlado
-npm run testar:navegador   # tracker em Chrome de verdade, emulando iPhone
+node tools/simular.js           # página de vendas, 1200 sessões
+node tools/simular-vsl-quiz.js  # vídeo e quiz
+node tools/simular-meta.js      # insights da Meta, para provar a junção
 ```
 
-O segundo sobe um Chrome headless, rola a página de exemplo com pausas reais,
-clica no CTA e confere o que chegou ao servidor. É o que prova `sendBeacon`,
-`pagehide` e a geometria de rolagem — coisas que DOM simulado não alcança.
-Ele se ignora sozinho se não achar Chrome; aponte com `CHROME=/caminho`.
+### Testes
+
+```bash
+npm run testar             # regra de visibilidade, DOM simulado e relógio controlado
+npm run testar:navegador   # tracker em Chrome real, emulando iPhone
+npm run testar:quiz        # percorre o quiz E procura dado pessoal no banco
+npm run testar:real -- <url>   # injeta o tracker numa página real da internet
+```
+
+`testar:quiz` é o mais importante: digita um e-mail e um telefone no formulário
+e depois varre seis tabelas procurando por eles. Se aparecerem, falha. É a
+garantia de LGPD virando verificação executável em vez de promessa em documento.
+
+Os que usam Chrome se ignoram sozinhos se não acharem o navegador; aponte com
+`CHROME=/caminho`.
 
 ---
 
@@ -56,9 +74,18 @@ Ele se ignora sozinho se não achar Chrome; aponte com `CHROME=/caminho`.
 
 <!-- cole antes do fechamento do body -->
 <script src="https://SEU-HOST/r.js"
+        data-key="SUA_CHAVE"
         data-page="oferta-relogio-uk"
         data-version="1" defer></script>
 ```
+
+A chave é pública e pode ficar exposta no HTML: ela só diz de qual conta é o
+evento que chega, não autoriza ler nada. Aparece em `/painel/instalar`.
+
+**O mesmo script mede vídeo e quiz.** Vídeo não precisa de marcação nenhuma —
+ele acha `<video>`, YouTube, Vimeo e o player novo da VTurb sozinho. Quiz usa
+`data-quiz-step`, `data-quiz-question` e `data-quiz-option`. Os três podem
+conviver na mesma página.
 
 Um bloco equivale a uma unidade de argumento: headline, prova social, oferta,
 garantia. De 10 a 15 por página. Granularidade menor gera ruído; maior perde
@@ -157,7 +184,10 @@ que todo mundo leu e rejeitou. São problemas opostos, com soluções opostas.
 | **Tempo alto** | **FUNCIONA** — não mexa; estude e replique | **TRAVA** — leram e desistiram. Prioridade máxima |
 | **Tempo baixo** | **IGNORADO** — passou batido. Candidato a corte | **REJEIÇÃO** — bateram o olho e saíram. Reescreva o gancho |
 
-"Tempo alto" é acima da mediana da própria página. "Queda alta" é 15% ou mais.
+"Tempo alto" é acima da mediana do próprio funil. "Queda alta" depende do
+produto: **15%** em página e vídeo, **5%** em quiz. Rolar para o próximo bloco
+não custa nada, mas responder mais uma pergunta é trabalho — e o mercado de quiz
+trabalha com teto de 5% de perda por etapa.
 
 ---
 
@@ -194,20 +224,20 @@ históricos não existem.
 ## Estrutura
 
 ```
-tracker/r.js        script da página (~9KB, sem dependências)
-server/
-  index.js          HTTP: coleta, API, estáticos
-  db.js             abertura do banco, páginas, facetas
-  schema.sql        esquema — nenhuma coluna guarda dado pessoal
-  ingest.js         validação e gravação; envios são idempotentes
-  metrics.js        alcance, queda, tempo/100px, reentradas, saída, veredito
-dashboard/          painel (HTML + JS, sem build)
-demo/               página de vendas instrumentada, para teste
-tools/
-  simular.js          tráfego sintético
-  testar-tracker.js   regra de visibilidade, sem navegador
-  testar-navegador.js tracker em Chrome real, via CDP
-data/regua.db       SQLite — backup é copiar este arquivo
+tracker/            fontes do script da página; vanilla, sem dependência
+  core.js           sessão, estado que sobrevive ao F5, transporte, UTM, CTA
+  page.js           blocos por scroll
+  vsl.js            vídeo, com adaptadores por player
+  quiz.js           perguntas e respostas
+  build.js          concatena em dist/r.js — sem bundler, de propósito
+metrics/verdict.js  o veredito: lógica pura, sem banco, serve aos três produtos
+metrics/teste.js    vencedor bayesiano, cálculo exato
+db/                 esquema, migrações e consultas
+  migrations/       .sql numerados, aplicados em transação
+  meta.js           cifra do token e a junção com a Meta
+web/                app Next.js: painel, login e coleta
+demo/               página e quiz instrumentados, para teste
+tools/              simuladores e suítes de teste
 ```
 
 O tracker envia **totais acumulados**, não incrementos. Lote duplicado, fora de
@@ -216,23 +246,13 @@ ordem ou perdido não corrompe nada: o servidor sobrescreve em vez de somar.
 ## Produção
 
 ```bash
-PORT=8787 REGUA_DB=/var/lib/regua/regua.db node server/index.js
+DATABASE_URL=postgres://... REGUA_SECRET=... npm --workspace web run build
+DATABASE_URL=postgres://... REGUA_SECRET=... npm --workspace web start
 ```
 
-Atrás de um proxy com TLS (Caddy resolve em duas linhas). Backup: copie
-`regua.db` (e os arquivos `-wal`/`-shm`, ou rode `sqlite3 regua.db ".backup"`).
-
-**Proteja o painel.** `/` e `/api/*` expõem os números de conversão das suas
-ofertas e não têm autenticação — o servidor assume que só `/e`, `/c` e `/r.js`
-ficam abertos. Feche o resto no proxy:
-
-```
-regua.seudominio.com {
-  @publico path /e /c /c.gif /r.js
-  handle @publico { reverse_proxy localhost:8787 }
-  handle { basic_auth { diogo <hash> }; reverse_proxy localhost:8787 }
-}
-```
+Atrás de um proxy com TLS. O painel tem login próprio — `exigirConta()` roda no
+servidor antes de qualquer consulta, e a conta vem do vínculo do usuário, nunca
+de parâmetro de URL.
 
 O `/e` responde a qualquer origem — é o comportamento necessário para um tracker
 instalado em domínios de terceiros. Ele tem limite de vazão por endereço (600 de
@@ -240,3 +260,71 @@ folga, 60/s sustentados), calibrado alto de propósito: apertar mais descartaria
 visitante real vindo de operadora de celular, onde milhares de assinantes
 compartilham um IP. O endereço é reduzido a um número com sal aleatório, vive só
 na memória e nunca é gravado.
+
+---
+
+## Meta Ads
+
+A Meta diz qual criativo tem clique barato. A Régua diz onde o tráfego de cada
+um morre na página. **Nenhuma das duas responde isso sozinha** — e é o
+cruzamento, não o gasto, que muda decisão.
+
+### O que precisa, e o que trava
+
+| Requisito | Prazo |
+|---|---|
+| App no Meta for Developers | dias |
+| Verificação de Negócio (CNPJ) | 1–2 semanas |
+| App Review de `ads_read` | 3–7 dias úteis após submeter |
+
+**Comece a fila antes do código.** É o único item cujo prazo não depende de
+nós. Em modo de desenvolvimento o app já funciona na sua própria conta de
+anúncios, então dá para usar tudo antes da aprovação sair.
+
+### A chave de junção
+
+Sem isto nada funciona. Nos **Parâmetros de URL**, no nível de anúncio:
+
+```
+utm_source=meta&utm_medium=paid&utm_campaign={{campaign.name}}&utm_content={{ad.id}}&utm_term={{adset.id}}
+```
+
+A Meta preenche `{{ad.id}}` sozinha. O painel avisa quando chega tráfego sem
+ele.
+
+### Ambiente
+
+```bash
+REGUA_SECRET=...        # cifra o token. Sem ela a conexão falha de propósito
+META_APP_ID=...
+META_APP_SECRET=...
+META_REDIRECT_URI=https://SEU-HOST/api/meta/callback
+META_API_VERSION=v25.0  # tudo anterior a v24.0 foi depreciado em 09/06/2026
+REGUA_CRON_SECRET=...   # para a sincronização diária
+```
+
+O token da conta de anúncios é gravado com **AES-256-GCM**, com a chave fora do
+banco. Um dump do banco não vira acesso à conta de anúncios de ninguém, e token
+adulterado falha ao decifrar em vez de virar chamada esquisita à API.
+
+Pedimos só `ads_read` — leitura. Nunca `ads_management`, que permitiria alterar
+campanha: a Régua não precisa, e pedir permissão a mais atrasa o App Review sem
+ganho nenhum.
+
+### Sincronização
+
+Manual pelo botão no painel, ou diária por agendador:
+
+```bash
+curl -X POST https://SEU-HOST/api/meta/cron -H "Authorization: Bearer $REGUA_CRON_SECRET"
+```
+
+Reimportar o mesmo dia sobrescreve, que é o certo — a Meta revisa números
+retroativamente por alguns dias.
+
+### Por que os números não batem com o Gerenciador
+
+Nunca vão bater, e a tela mostra os dois lados de propósito. A Meta conta
+**clique**, a Régua conta **página carregada**, e bloqueador come parte. A
+coluna *Aproveitamento* é essa diferença: muito abaixo de 80% costuma ser
+página lenta — gente que clica e desiste antes de abrir.

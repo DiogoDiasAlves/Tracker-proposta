@@ -4,3 +4,4 @@ dist/
 web/.next/
 web/node_modules/
 node_modules/
+.env*.local
