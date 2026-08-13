@@ -5,6 +5,7 @@ import {
   metaConfigurado, metaConexao, metaCriativos, metaOndeMorre, metaContas,
 } from '@/lib/meta';
 import { Cabecalho, AindaSemColeta, Codigo } from '@/components/ui/estados';
+import { FichaCriativo } from '@/components/painel/ficha-criativo';
 import { IconMegaphone, IconArrowUpRight } from '@/components/icons';
 
 export const metadata = { title: 'Criativos — Régua' };
@@ -125,7 +126,7 @@ export default async function Criativos({ searchParams }: Props) {
               <table className="w-full min-w-[860px] border-collapse text-[12.5px]">
                 <thead>
                   <tr className="border-b border-line">
-                    {['Criativo', 'Gasto', 'Cliques', 'Sessões', 'Aproveit.', 'Conversões', 'CPC', 'CPA real']
+                    {['Criativo', 'Gasto', 'Hook', 'Hold', 'Cliques', 'Sessões', 'ROAS', 'CPC', 'CPA real']
                       .map((h, i) => (
                         <th key={h} className={`px-4 py-3 text-[9.5px] font-normal uppercase tracking-wider text-faint ${i ? 'text-right' : 'text-left'}`}>
                           {h}
@@ -151,12 +152,22 @@ export default async function Criativos({ searchParams }: Props) {
                           </Link>
                         </td>
                         <td className="px-4 py-2.5 text-right tnum">{brl(c.gasto)}</td>
+                        <td className="px-4 py-2.5 text-right tnum"
+                            style={{ color: c.hook == null ? undefined
+                              : c.hook < 20 ? 'var(--color-danger)'
+                              : c.hook < 30 ? 'var(--color-warn)' : 'var(--color-accent)' }}>
+                          {c.hook == null ? '—' : `${nf(c.hook)}%`}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tnum text-muted">
+                          {c.hold == null ? '—' : `${nf(c.hold)}%`}
+                        </td>
                         <td className="px-4 py-2.5 text-right tnum text-muted">{c.cliques.toLocaleString('pt-BR')}</td>
                         <td className="px-4 py-2.5 text-right tnum">{c.sessoes.toLocaleString('pt-BR')}</td>
-                        <td className="px-4 py-2.5 text-right tnum text-muted">
-                          {c.aproveitamento == null ? '—' : `${nf(c.aproveitamento, 0)}%`}
+                        <td className="px-4 py-2.5 text-right tnum"
+                            style={{ color: c.roas == null ? undefined
+                              : c.roas >= 1 ? 'var(--color-accent)' : 'var(--color-danger)' }}>
+                          {c.roas == null ? '—' : `${c.roas.toFixed(2).replace('.', ',')}x`}
                         </td>
-                        <td className="px-4 py-2.5 text-right tnum">{c.conversoes}</td>
                         <td className="px-4 py-2.5 text-right tnum text-muted">
                           {c.cpc == null ? '—' : brlCentavos(c.cpc)}
                         </td>
@@ -171,11 +182,20 @@ export default async function Criativos({ searchParams }: Props) {
             </div>
 
             <p className="border-t border-line px-5 py-4 text-[11.5px] leading-relaxed text-faint">
-              Aproveitamento é quanto do clique pago virou carregamento medido. Nunca dá 100%:
+              Hook e hold medem o criativo <span className="text-muted">no feed</span>, antes do
+              clique. É o que separa as duas causas de um CPA ruim: hook baixo é gancho que não
+              segura; hook alto com CPA ruim é problema depois do clique — e aí a curva por
+              bloco, abaixo, diz exatamente onde. Aproveitamento é quanto do clique pago virou
+              carregamento medido. Nunca dá 100%:
               a Meta conta clique, a Régua conta página carregada, e bloqueador come parte. Muito
               abaixo de 80% costuma ser página lenta — gente que clica e desiste antes de abrir.
             </p>
           </section>
+
+          {selecionado && (() => {
+            const c = criativos.find(x => x.ad_id === selecionado);
+            return c ? <FichaCriativo c={c} /> : null;
+          })()}
 
           {morte && (
             <section className="card overflow-hidden">

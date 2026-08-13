@@ -20,7 +20,17 @@ export type Conexao = {
 
 export type Criativo = {
   ad_id: string; nome: string; campanha: string | null;
+  thumb: string | null; video_id: string | null;
   impressoes: number; cliques: number; gasto: number;
+
+  /* retenção do ANÚNCIO no feed — a metade do funil que vem antes do clique */
+  hook: number | null; hold: number | null; body_conv: number | null;
+  quartis: number[]; views_3s: number; thruplays: number;
+
+  compras: number; receita: number;
+  roas: number | null; ticket: number | null;
+  cpm: number | null; ctr: number | null; conv_meta: number | null;
+
   sessoes: number; conversoes: number;
   cpc: number | null; cpa: number | null; conversao: number;
   aproveitamento: number | null; so_meta: boolean; so_regua: boolean;

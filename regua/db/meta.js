@@ -136,8 +136,10 @@ export async function gravarInsights(db, accountId, linhas) {
     await c.query(`
       INSERT INTO meta_ad_insights (account_id, dia, ad_id, adset_id, campaign_id,
         ad_name, adset_name, campaign_name, impressoes, cliques, alcance, gasto,
-        frequencia, acoes, atualizado_em)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, now())
+        frequencia, acoes, views_3s, thruplays, v25, v50, v75, v100,
+        compras, receita, thumb_url, video_id, atualizado_em)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+              $15,$16,$17,$18,$19,$20,$21,$22,$23,$24, now())
       ON CONFLICT (account_id, dia, ad_id) DO UPDATE SET
         adset_id = EXCLUDED.adset_id, campaign_id = EXCLUDED.campaign_id,
         ad_name = EXCLUDED.ad_name, adset_name = EXCLUDED.adset_name,
@@ -145,11 +147,18 @@ export async function gravarInsights(db, accountId, linhas) {
         impressoes = EXCLUDED.impressoes, cliques = EXCLUDED.cliques,
         alcance = EXCLUDED.alcance, gasto = EXCLUDED.gasto,
         frequencia = EXCLUDED.frequencia, acoes = EXCLUDED.acoes,
+        views_3s = EXCLUDED.views_3s, thruplays = EXCLUDED.thruplays,
+        v25 = EXCLUDED.v25, v50 = EXCLUDED.v50, v75 = EXCLUDED.v75, v100 = EXCLUDED.v100,
+        compras = EXCLUDED.compras, receita = EXCLUDED.receita,
+        thumb_url = COALESCE(EXCLUDED.thumb_url, meta_ad_insights.thumb_url),
+        video_id = COALESCE(EXCLUDED.video_id, meta_ad_insights.video_id),
         atualizado_em = now()`,
       [accountId, l.dia, l.ad_id, l.adset_id ?? null, l.campaign_id ?? null,
        l.ad_name ?? null, l.adset_name ?? null, l.campaign_name ?? null,
        l.impressoes ?? 0, l.cliques ?? 0, l.alcance ?? 0, l.gasto ?? 0,
-       l.frequencia ?? null, l.acoes ? JSON.stringify(l.acoes) : null]
+       l.frequencia ?? null, l.acoes ? JSON.stringify(l.acoes) : null,
+       l.views_3s ?? 0, l.thruplays ?? 0, l.v25 ?? 0, l.v50 ?? 0, l.v75 ?? 0, l.v100 ?? 0,
+       l.compras ?? 0, l.receita ?? 0, l.thumb ?? null, l.videoId ?? null]
     );
     n++;
   }
@@ -188,9 +197,17 @@ export async function criativos(db, accountId, { desde = null, ate = null } = {}
       SELECT i.ad_id,
              MAX(i.ad_name) AS ad_name,
              MAX(i.campaign_name) AS campaign_name,
+             MAX(i.thumb_url) AS thumb_url,
+             MAX(i.video_id) AS video_id,
              SUM(i.impressoes)::bigint AS impressoes,
              SUM(i.cliques)::bigint AS cliques,
-             SUM(i.gasto)::numeric AS gasto
+             SUM(i.gasto)::numeric AS gasto,
+             SUM(i.views_3s)::bigint AS views_3s,
+             SUM(i.thruplays)::bigint AS thruplays,
+             SUM(i.v25)::bigint AS v25, SUM(i.v50)::bigint AS v50,
+             SUM(i.v75)::bigint AS v75, SUM(i.v100)::bigint AS v100,
+             SUM(i.compras)::bigint AS compras,
+             SUM(i.receita)::numeric AS receita
       FROM meta_ad_insights i
       WHERE i.account_id = $1 ${filtroDia}
       GROUP BY i.ad_id
@@ -206,9 +223,16 @@ export async function criativos(db, accountId, { desde = null, ate = null } = {}
     )
     SELECT COALESCE(m.ad_id, r.ad_id) AS ad_id,
            m.ad_name, m.campaign_name,
+           m.thumb_url, m.video_id,
            COALESCE(m.impressoes, 0) AS impressoes,
            COALESCE(m.cliques, 0) AS cliques,
            COALESCE(m.gasto, 0)::float AS gasto,
+           COALESCE(m.views_3s, 0) AS views_3s,
+           COALESCE(m.thruplays, 0) AS thruplays,
+           COALESCE(m.v25, 0) AS v25, COALESCE(m.v50, 0) AS v50,
+           COALESCE(m.v75, 0) AS v75, COALESCE(m.v100, 0) AS v100,
+           COALESCE(m.compras, 0) AS compras,
+           COALESCE(m.receita, 0)::float AS receita,
            COALESCE(r.sessoes, 0) AS sessoes,
            COALESCE(r.conversoes, 0) AS conversoes,
            COALESCE(r.paginas, 0) AS paginas
@@ -216,13 +240,45 @@ export async function criativos(db, accountId, { desde = null, ate = null } = {}
     ORDER BY COALESCE(m.gasto, 0) DESC
   `, args);
 
-  return rows.map(r => ({
+  return rows.map(r => {
+    const imp = Number(r.impressoes), cli = Number(r.cliques);
+    const v3 = Number(r.views_3s), tp = Number(r.thruplays);
+    const compras = Number(r.compras), receita = r.receita;
+
+    return {
     ad_id: r.ad_id,
     nome: r.ad_name ?? r.ad_id,
     campanha: r.campaign_name,
-    impressoes: Number(r.impressoes),
-    cliques: Number(r.cliques),
+    thumb: r.thumb_url,
+    video_id: r.video_id,
+    impressoes: imp,
+    cliques: cli,
     gasto: r.gasto,
+
+    /* ── retenção do anúncio NO FEED ──────────────────────────────────
+       Mede o criativo antes do clique, e é a outra metade do funil. Sem
+       isto, CPA ruim é ambíguo: pode ser gancho que não segura ou página
+       que não converte. Com isto, dá para separar. */
+    // parou de rolar: views de 3s ÷ impressões
+    hook: imp ? (v3 / imp) * 100 : null,
+    // aguentou o corpo: ThruPlays ÷ views de 3s
+    hold: v3 ? (tp / v3) * 100 : null,
+    // converteu entre quem assistiu o corpo do vídeo
+    body_conv: tp ? (compras / tp) * 100 : null,
+    // curva do próprio anúncio, em quartis
+    quartis: [Number(r.v25), Number(r.v50), Number(r.v75), Number(r.v100)],
+    views_3s: v3,
+    thruplays: tp,
+
+    /* ── resultado ─────────────────────────────────────────────────── */
+    compras,
+    receita,
+    roas: r.gasto ? receita / r.gasto : null,
+    ticket: compras ? receita / compras : null,
+    cpm: imp ? (r.gasto / imp) * 1000 : null,
+    ctr: imp ? (cli / imp) * 100 : null,
+    // conversão que a META reporta, sobre cliques
+    conv_meta: cli ? (compras / cli) * 100 : null,
     sessoes: r.sessoes,
     conversoes: r.conversoes,
     // CPC que a Meta cobra
@@ -235,8 +291,9 @@ export async function criativos(db, accountId, { desde = null, ate = null } = {}
     // quanto do clique pago virou carregamento medido
     aproveitamento: Number(r.cliques) ? (r.sessoes / Number(r.cliques)) * 100 : null,
     so_meta: r.sessoes === 0,
-    so_regua: Number(r.impressoes) === 0 && Number(r.cliques) === 0,
-  }));
+    so_regua: imp === 0 && cli === 0,
+  };
+  });
 }
 
 /** Onde o tráfego de UM criativo morre. É a pergunta que só existe tendo

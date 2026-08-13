@@ -77,6 +77,26 @@ export async function trocarCodigo(code) {
   };
 }
 
+/** Miniatura e id de vídeo de cada anúncio. Número sem o criativo ao lado
+ *  obriga a pessoa a abrir o Gerenciador só para lembrar do que se trata. */
+export async function criativosDosAnuncios(token, adAccountId, adIds = []) {
+  if (!adIds.length) return {};
+  const r = await chamar(`${adAccountId}/ads`, {
+    fields: 'id,creative{thumbnail_url,video_id,object_story_spec}',
+    filtering: JSON.stringify([{ field: 'id', operator: 'IN', value: adIds.slice(0, 200) }]),
+    limit: 200,
+  }, token);
+  const out = {};
+  for (const a of r.data || []) {
+    const c = a.creative || {};
+    out[a.id] = {
+      thumb: c.thumbnail_url ?? null,
+      videoId: c.video_id ?? c.object_story_spec?.video_data?.video_id ?? null,
+    };
+  }
+  return out;
+}
+
 export async function contasDeAnuncios(token) {
   const r = await chamar('me/adaccounts', {
     fields: 'id,account_id,name,currency,account_status', limit: 100,
@@ -92,7 +112,30 @@ export async function contasDeAnuncios(token) {
 const CAMPOS = [
   'ad_id', 'ad_name', 'adset_id', 'adset_name', 'campaign_id', 'campaign_name',
   'impressions', 'clicks', 'reach', 'spend', 'frequency', 'actions', 'date_start',
+  // vídeo DO ANÚNCIO, no feed — é o que dá hook rate e hold rate
+  'video_3_sec_watched_actions', 'video_thruplay_watched_actions',
+  'video_p25_watched_actions', 'video_p50_watched_actions',
+  'video_p75_watched_actions', 'video_p100_watched_actions',
+  // venda e receita, para ROAS e ticket médio
+  'action_values',
 ].join(',');
+
+/* Os campos de ação da Meta vêm como lista de {action_type, value}, e o tipo
+   que interessa muda conforme o pixel: offsite_conversion.fb_pixel_purchase
+   em conta com CAPI, `purchase` em outras. Somar os dois duplicaria, então a
+   ordem de preferência é explícita. */
+const TIPOS_COMPRA = ['offsite_conversion.fb_pixel_purchase', 'purchase', 'omni_purchase'];
+
+function somaAcao(lista, tipos) {
+  if (!Array.isArray(lista)) return 0;
+  for (const t of tipos) {
+    const achado = lista.find(a => a.action_type === t);
+    if (achado) return Number(achado.value || 0);
+  }
+  return 0;
+}
+
+const primeiroValor = v => (Array.isArray(v) ? Number(v[0]?.value || 0) : Number(v || 0));
 
 /**
  * Insights diários por anúncio.
@@ -123,6 +166,14 @@ export async function insights(token, adAccountId, { desde, ate }) {
         gasto: Number(d.spend || 0),
         frequencia: d.frequency ? Number(d.frequency) : null,
         acoes: d.actions ?? null,
+        views_3s: primeiroValor(d.video_3_sec_watched_actions),
+        thruplays: primeiroValor(d.video_thruplay_watched_actions),
+        v25: primeiroValor(d.video_p25_watched_actions),
+        v50: primeiroValor(d.video_p50_watched_actions),
+        v75: primeiroValor(d.video_p75_watched_actions),
+        v100: primeiroValor(d.video_p100_watched_actions),
+        compras: somaAcao(d.actions, TIPOS_COMPRA),
+        receita: somaAcao(d.action_values, TIPOS_COMPRA),
       });
     }
     url = r.paging?.next ?? null;

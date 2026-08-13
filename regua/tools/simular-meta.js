@@ -18,10 +18,13 @@ const DIAS = Number(process.argv[2] || 14);
    daquele tráfego chega fundo na página. É essa diferença que a tela existe
    para mostrar. */
 const CRIATIVOS = [
-  { id: '1200000', nome: 'VSL-hook-dor',        campanha: 'Escala Julho', cpc: 0.78 },
-  { id: '1200001', nome: 'VSL-hook-curiosidade', campanha: 'Escala Julho', cpc: 2.05 },
-  { id: '1200002', nome: 'Estatico-prova',       campanha: 'Escala Julho', cpc: 1.12 },
-  { id: '1200003', nome: 'UGC-depoimento',       campanha: 'Retargeting',  cpc: 1.64 },
+  // hook = quanto para de rolar; hold = quanto aguenta o corpo. Valores
+  // plantados diferentes de propósito, para a tela ter o que separar.
+  { id: '1200000', nome: 'VSL-hook-dor',         campanha: 'Escala Julho', cpc: 0.78, hook: .38, hold: .21, ticket: 59.9 },
+  { id: '1200001', nome: 'VSL-hook-curiosidade', campanha: 'Escala Julho', cpc: 2.05, hook: .31, hold: .18, ticket: 59.9 },
+  // gancho fraquíssimo: quase ninguém para de rolar. É o que explica o CPA ruim
+  { id: '1200002', nome: 'Estatico-prova',       campanha: 'Escala Julho', cpc: 1.12, hook: .09, hold: .11, ticket: 59.9 },
+  { id: '1200003', nome: 'UGC-depoimento',       campanha: 'Retargeting',  cpc: 1.64, hook: .44, hold: .26, ticket: 59.9 },
 ];
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -47,7 +50,17 @@ for (const c of CRIATIVOS) {
     const dia = new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
     const cliques = Math.max(1, Math.round((cliquesTotais / DIAS) * rand(0.6, 1.4)));
     const impressoes = Math.round(cliques * rand(45, 90));
+    const v3 = Math.round(impressoes * c.hook * rand(.9, 1.1));
+    const tp = Math.round(v3 * c.hold * rand(.9, 1.1));
+    const compras = Math.round(tp * rand(.02, .05));
+
     linhas.push({
+      views_3s: v3, thruplays: tp,
+      v25: Math.round(v3 * .62), v50: Math.round(v3 * .34),
+      v75: Math.round(v3 * .19), v100: Math.round(v3 * .12),
+      compras, receita: Number((compras * c.ticket).toFixed(2)),
+      thumb: `https://exemplo.invalido/thumb/${c.id}.jpg`,
+      videoId: '9' + c.id,
       dia, ad_id: c.id,
       adset_id: '99' + c.id.slice(-3), campaign_id: '77' + c.id.slice(-3),
       ad_name: c.nome, adset_name: 'Conjunto A', campaign_name: c.campanha,
