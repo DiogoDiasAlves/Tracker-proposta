@@ -1,0 +1,13 @@
+{
+  "name": "@regua/db",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./metrics": "./metrics.js",
+    "./ingest": "./ingest.js"
+  },
+  "dependencies": { "pg": "^8.23.0" }
+}

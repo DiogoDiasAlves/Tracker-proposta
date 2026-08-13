@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Régua — sistema visual
+
+   Escuro, denso e com brilho. O acento é verde neon: em fundo quase preto
+   ele carrega hierarquia sozinho, sem precisar de peso de fonte nem de
+   caixa alta.
+
+   Regra de cor que não pode ser quebrada: o acento é MARCA e AÇÃO. O que
+   diz "este bloco está bom" também é verde, e isso é intencional — na
+   Régua, estar na cor da marca é estar funcionando. Âmbar e vermelho
+   ficam reservados a atenção e perda, nunca a decoração.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  --color-bg:          #0A0C12;
+  --color-panel:       #0F131C;
+  --color-surface:     #141926;
+  --color-surface-2:   #1A2030;
+  --color-elevated:    #212940;
+
+  --color-line:        #1F2637;
+  --color-line-soft:   #171C29;
+
+  /* Texto. Todos conferidos com WCAG contra a superfície mais CLARA em que
+     aparecem (surface-2): o mínimo é 4.5:1. O valor original de `faint`
+     (#59627A) dava 2.67:1 — ilegível, e estava sendo usado em legenda. */
+  --color-ink:         #EEF2F8;   /* 15.6:1 */
+  --color-muted:       #9AA3B8;   /*  6.4:1 */
+  --color-faint:       #838CA3;   /*  4.8:1 — piso, só para rótulo pequeno */
+
+  /* ── acento da marca ──────────────────────────────────────────────
+     Neon: interface, brilho e TEXTO (12.3:1 sobre card). */
+  --color-accent:      #2DF5A5;
+  --color-accent-soft: #8CFFD1;
+  --color-accent-deep: #0A6B48;
+
+  /* ── status: texto ────────────────────────────────────────────────
+     Todos >= 4.5:1. Nunca sozinhos — sempre com número e rótulo ao lado. */
+  --color-warn:        #FFB443;   /*  9.9:1 */
+  --color-danger:      #FF5F52;   /*  5.9:1 */
+
+  /* ── status: MARCA de gráfico ─────────────────────────────────────
+     Passos próprios do modo escuro, não os neon rebaixados. Validados com
+     scripts/validate_palette.js contra a superfície #141926: banda de
+     luminosidade, piso de croma, separação para daltonismo (pior par
+     ΔE 9.9 deutan), piso de visão normal (18.7) e contraste — 5 de 5.
+     Marca neon reprovaria a banda: L 0.86 contra o teto de 0.67.        */
+  --color-mark-good:   #00AE75;
+  --color-mark-warn:   #BF8700;
+  --color-mark-bad:    #BA3538;
+  --color-mark-base:   #6E7998;   /* linha de referência, sempre tracejada */
+
+  --radius-card: 18px;
+
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html { color-scheme: dark; }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Malha de fundo — dá profundidade sem competir com o conteúdo. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, .025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, .025) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 35%, transparent 100%);
+  }
+
+  ::selection { background: color-mix(in oklab, var(--color-accent) 30%, transparent); }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /* Números de métrica sempre alinhados: coluna que "dança" a cada
+     atualização é ruído visual que cansa quem olha o dia inteiro. */
+  .tnum { font-variant-numeric: tabular-nums; }
+}
+
+@layer components {
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+
+  /* Brilho de acento. Usado com parcimônia — se tudo brilha, nada brilha. */
+  .glow-accent {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--color-accent) 22%, transparent),
+      0 0 24px -6px color-mix(in oklab, var(--color-accent) 45%, transparent);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 18px color-mix(in oklab, var(--color-accent) 45%, transparent);
+  }
+
+  /* Painel de destaque — o equivalente ao card roxo da referência. */
+  .panel-accent {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-card);
+    background:
+      radial-gradient(120% 90% at 15% 0%, rgba(45, 245, 165, .22) 0%, transparent 55%),
+      linear-gradient(160deg, #0E2A22 0%, #0B1119 60%);
+    border: 1px solid color-mix(in oklab, var(--color-accent) 18%, var(--color-line));
+  }
+
+  /* Risco de luz atravessando o painel, como na referência.
+     Opt-in, e nunca automático: num painel pequeno ele cruza o texto e vira
+     rabisco em cima da frase. Só entra onde há área vazia para ele cruzar. */
+  .panel-accent.com-risco::after {
+    content: "";
+    position: absolute;
+    width: 150%;
+    height: 1px;
+    top: 14%;
+    left: -25%;
+    background: linear-gradient(90deg, transparent, rgba(140, 255, 209, .38), transparent);
+    transform: rotate(-14deg);
+    filter: blur(.5px);
+  }
+
+  .pillbar {
+    display: inline-flex;
+    padding: 4px;
+    gap: 2px;
+    border-radius: 12px;
+    background: var(--color-panel);
+    border: 1px solid var(--color-line);
+  }
+
+  .pillbar button {
+    padding: 7px 14px;
+    border-radius: 9px;
+    font-size: 13px;
+    color: var(--color-muted);
+    transition: color .15s, background .15s;
+  }
+  .pillbar button:hover { color: var(--color-ink); }
+  .pillbar button[aria-pressed="true"] {
+    background: var(--color-surface-2);
+    color: var(--color-ink);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 9px;
+    font-size: 12px;
+    background: var(--color-panel);
+    border: 1px solid var(--color-line);
+    color: var(--color-muted);
+  }
+
+  .btn-accent {
+    background: linear-gradient(180deg, var(--color-accent-soft), var(--color-accent));
+    color: #04241A;
+    font-weight: 600;
+    border-radius: 12px;
+    box-shadow: 0 6px 22px -10px color-mix(in oklab, var(--color-accent) 70%, transparent);
+    transition: filter .15s, transform .15s;
+  }
+  .btn-accent:hover { filter: brightness(1.06); }
+  .btn-accent:active { transform: translateY(1px); }
+
+  .btn-ghost {
+    border: 1px solid var(--color-line);
+    background: var(--color-panel);
+    color: var(--color-ink);
+    border-radius: 12px;
+    transition: background .15s, border-color .15s;
+  }
+  .btn-ghost:hover {
+    background: var(--color-surface-2);
+    border-color: var(--color-elevated);
+  }
+}

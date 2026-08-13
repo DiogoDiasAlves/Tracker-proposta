@@ -64,7 +64,9 @@ export function verdict(s, i, med, kind = 'page') {
   const v = VOCAB[kind] || VOCAB.page;
   const hiT = s.per100 >= med;
   const hiD = s.drop !== null && s.drop >= HIGH_DROP;
-  const f = n => n.toFixed(1);
+  // Vírgula decimal: o texto do veredito aparece ao lado dos números do
+  // painel, e "4.9s" no meio de uma tela que escreve "45,1%" lê como erro.
+  const f = n => n.toFixed(1).replace('.', ',');
 
   if (i === 0) return {
     verdict: 'DOBRA',

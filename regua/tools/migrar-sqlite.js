@@ -97,6 +97,13 @@ async function main() {
   }
   console.log(`  ${stats.length} linhas de etapa migradas`);
 
+  // cta_clicks não tem chave natural, então reinserir duplicaria. Limpa antes:
+  // o script precisa poder rodar de novo sem inflar a contagem de cliques.
+  await pg.query(
+    `DELETE FROM cta_clicks WHERE session_id IN (
+       SELECT id FROM sessions WHERE account_id = $1)`, [accountId]
+  );
+
   const cliques = lite.prepare('SELECT * FROM cta_clicks').all();
   for (const c of cliques) {
     await pg.query(
@@ -121,6 +128,16 @@ async function main() {
     const L = computeLite(lite, key, f.version, f.device);
     const P = await computePg(pg, accountId, key, f.version, f.device);
     const rotulo = `${key} v${f.version} ${f.device}`;
+
+    // Depois do corte o Postgres é a fonte da verdade e continua recebendo
+    // tráfego, enquanto o SQLite virou foto congelada. Recorte com sessão a
+    // mais é tráfego novo, não erro de migração — e tratar isso como falha
+    // faria o script gritar lobo até ninguém mais olhar para ele.
+    if (P.sessions > L.sessions) {
+      console.log(`  pulado ${rotulo} — Postgres já tem ${P.sessions - L.sessions} sessão(ões) ` +
+                  `a mais que a foto do SQLite (tráfego pós-corte)`);
+      continue;
+    }
 
     const checa = (nome, a, b) => {
       if (perto(a, b)) return;

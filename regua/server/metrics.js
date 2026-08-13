@@ -6,8 +6,10 @@
  * certa: é o documento que o cliente assinou.
  */
 
-const MIN_SAMPLE = 300;   // abaixo disso o painel avisa que é ruído
-const HIGH_DROP = 15;     // limiar de "queda alta" no cruzamento do diagnóstico
+// Uma única implementação do veredito, compartilhada com o caminho Postgres.
+// Duas cópias do mesmo texto divergem — foi assim que a vírgula decimal
+// ficou certa de um lado e errada do outro.
+import { MIN_SAMPLE, verdict } from '../metrics/verdict.js';
 
 /** Alcance: existir linha em block_stats É ter visto o bloco. */
 function blockRows(db, pid, version, device) {
@@ -106,7 +108,7 @@ export function compute(db, pageKey, version, device) {
 
   const med = median(blocks.map(b => b.per100));
   for (let i = 0; i < blocks.length; i++) {
-    Object.assign(blocks[i], verdict(blocks[i], i, blocks.length, med));
+    Object.assign(blocks[i], verdict(blocks[i], i, med, 'page'));
   }
 
   // Maior gargalo: ignora o primeiro bloco de propósito. A dobra sempre lidera
@@ -126,48 +128,6 @@ export function compute(db, pageKey, version, device) {
     median_per100: med,
     worst: worst ? worst.block : null,
     blocks,
-  };
-}
-
-/** O cruzamento tempo × queda da proposta. Sozinha, "queda alta" é ambígua. */
-function verdict(b, i, n, med) {
-  const hiT = b.per100 >= med;
-  const hiD = b.drop !== null && b.drop >= HIGH_DROP;
-
-  if (i === 0) return {
-    verdict: 'DOBRA',
-    reading: 'Primeiro bloco. A queda aqui é o filtro natural do tráfego frio e não deve ser comparada com o restante da página.',
-    action: 'Referência: 20% a 35% é normal. Acima disso, o problema costuma estar no criativo do anúncio, não na página.',
-  };
-
-  if (b.drop === null) return {
-    verdict: 'ÚLTIMO',
-    reading: 'Fim da página. Não há bloco seguinte para calcular queda — a saída aqui é o encerramento esperado da leitura.',
-    action: 'Acompanhe cliques no CTA final e tempo de permanência.',
-  };
-
-  if (hiT && hiD) return {
-    verdict: 'TRAVA',
-    reading: `Tempo acima da mediana da página (${b.per100.toFixed(1)}s contra ${med.toFixed(1)}s por 100px) somado a queda de ${b.drop.toFixed(1)}%. Não é um bloco ignorado: leram com atenção e desistiram. Reentradas em ${b.entries.toFixed(1)} confirmam idas e voltas.`,
-    action: 'Prioridade máxima. Há uma objeção ou uma confusão aqui. Reescreva e suba como versão nova, sem tocar em mais nada.',
-  };
-
-  if (hiT) return {
-    verdict: 'FUNCIONA',
-    reading: `Segura a atenção (${b.per100.toFixed(1)}s por 100px, acima da mediana de ${med.toFixed(1)}s) e ainda assim entrega ${(100 - b.drop).toFixed(1)}% para o bloco seguinte.`,
-    action: 'Não mexa. Estude o que faz este bloco funcionar e aplique nos que travam.',
-  };
-
-  if (hiD) return {
-    verdict: 'REJEIÇÃO',
-    reading: `Tempo baixo (${b.per100.toFixed(1)}s por 100px) com queda de ${b.drop.toFixed(1)}%. Bateram o olho e saíram, sem ler.`,
-    action: 'O problema está na abertura do bloco — título, imagem ou primeira linha. Reescreva o gancho, não o corpo.',
-  };
-
-  return {
-    verdict: 'IGNORADO',
-    reading: `Tempo baixo (${b.per100.toFixed(1)}s por 100px) e queda dentro do normal. Ninguém leu, e isso não atrapalhou o avanço.`,
-    action: 'Candidato a corte. Reduzir este bloco encurta a página sem custo de conversão.',
   };
 }
 

@@ -1,0 +1,8 @@
+{
+  "name": "@regua/metrics",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "verdict.js",
+  "exports": { ".": "./verdict.js" }
+}

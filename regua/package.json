@@ -18,5 +18,10 @@
   },
   "dependencies": {
     "pg": "^8.23.0"
-  }
+  },
+  "workspaces": [
+    "db",
+    "metrics",
+    "web"
+  ]
 }
