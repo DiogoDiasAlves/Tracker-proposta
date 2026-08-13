@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { contaAtual, ativos, resumo } from '@/lib/dados';
+import { ativos, resumo } from '@/lib/dados';
+import { exigirConta } from '@/lib/sessao';
 import { vereditoTeste } from '@regua/metrics/teste';
 import { Cabecalho } from '@/components/ui/estados';
 import { PillFiltro } from '@/components/ui/pill-filtro';
@@ -12,7 +13,7 @@ type Props = { searchParams: Promise<{ a?: string; b?: string; modo?: string }> 
 
 export default async function Comparar({ searchParams }: Props) {
   const sp = await searchParams;
-  const conta = await contaAtual();
+  const { conta } = await exigirConta();
   const lista = (await ativos(conta.id)).filter(x => x.sessions > 0);
 
   if (lista.length < 2) {

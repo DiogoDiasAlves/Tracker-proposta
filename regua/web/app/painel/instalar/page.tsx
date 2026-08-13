@@ -1,10 +1,11 @@
-import { contaAtual, siteKey } from '@/lib/dados';
+import { siteKey } from '@/lib/dados';
+import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, Codigo } from '@/components/ui/estados';
 
 export const metadata = { title: 'Instalação — Régua' };
 
 export default async function Instalar() {
-  const conta = await contaAtual();
+  const { conta } = await exigirConta();
   const chave = (await siteKey(conta.id)) ?? 'SUA_CHAVE';
   const host = process.env.REGUA_HOST || 'http://localhost:3100';
 

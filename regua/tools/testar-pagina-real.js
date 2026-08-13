@@ -17,7 +17,7 @@ import { pool } from '../db/index.js';
 const URL_ALVO = process.argv[2];
 const CHAVE = process.argv[3] || 'rg_diogo';
 const ASSET = process.argv[4] || 'pagina-real';
-const COLETA = process.env.REGUA_ENDPOINT || 'http://localhost:8787';
+const COLETA = process.env.REGUA_ENDPOINT || 'http://localhost:3100';
 const PORT = 9402;
 
 const CHROMES = [
@@ -67,7 +67,7 @@ async function main() {
   const bin = CHROMES.find(p => existsSync(p));
   if (!bin) { console.log('Chrome não encontrado — defina CHROME=. Pulando.'); process.exit(0); }
 
-  try { await fetch(`${COLETA}/api/pages`); }
+  try { await fetch(`${COLETA}/r.js`); }
   catch { console.error(`Coleta fora do ar em ${COLETA}.`); process.exit(1); }
 
   const db = pool();

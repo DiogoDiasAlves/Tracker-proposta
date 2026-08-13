@@ -1,10 +1,11 @@
-import { contaAtual, db } from '@/lib/dados';
+import { db } from '@/lib/dados';
+import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, AindaSemColeta } from '@/components/ui/estados';
 
 export const metadata = { title: 'Criativos — Régua' };
 
 export default async function Criativos() {
-  const conta = await contaAtual();
+  const { conta } = await exigirConta();
 
   // Sessões que já chegaram com id de anúncio na URL. É o pré-requisito real:
   // sem ad_id não há como amarrar gasto de criativo a comportamento na página.

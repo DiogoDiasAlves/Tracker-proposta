@@ -1,8 +1,8 @@
 import { IconBell, IconSearch, IconGear, IconChevron, IconPlug } from '../icons';
 import Link from 'next/link';
 
-export function Topbar({ conta, avisos = 0 }: { conta: string; avisos?: number }) {
-  const iniciais = conta.slice(0, 2).toUpperCase();
+export function Topbar({ conta, usuario, avisos = 0 }: { conta: string; usuario?: string; avisos?: number }) {
+  const iniciais = (usuario || conta).slice(0, 2).toUpperCase();
 
   return (
     <header className="relative z-10 flex h-[72px] items-center gap-4 border-b border-line px-6">
@@ -17,7 +17,7 @@ export function Topbar({ conta, avisos = 0 }: { conta: string; avisos?: number }
               Beta
             </span>
           </span>
-          <span className="block text-[14px] font-medium">Workspace</span>
+          <span className="block text-[14px] font-medium">{usuario ?? 'Workspace'}</span>
         </span>
         <IconChevron className="h-4 w-4 text-faint" />
       </button>
@@ -47,10 +47,10 @@ export function Topbar({ conta, avisos = 0 }: { conta: string; avisos?: number }
           />
         </div>
 
-        <button className="btn-ghost flex items-center gap-2 px-3.5 py-2.5 text-[13px] text-muted" aria-label="Ajustes">
-          Ajustes
+        <Link href="/sair" className="btn-ghost flex items-center gap-2 px-3.5 py-2.5 text-[13px] text-muted">
+          Sair
           <IconGear className="h-[17px] w-[17px]" />
-        </button>
+        </Link>
       </div>
     </header>
   );

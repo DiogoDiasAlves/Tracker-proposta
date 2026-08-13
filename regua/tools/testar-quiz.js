@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pool } from '../db/index.js';
 
-const BASE = process.argv[2] || 'http://localhost:8787';
+const BASE = process.argv[2] || 'http://localhost:3100';
 const PORT = 9403;
 const CHROMES = [
   process.env.CHROME,
@@ -61,7 +61,7 @@ function conectar(url) {
 async function main() {
   const bin = CHROMES.find(p => existsSync(p));
   if (!bin) { console.log('Chrome não encontrado. Pulando.'); process.exit(0); }
-  try { await fetch(`${BASE}/api/pages`); }
+  try { await fetch(`${BASE}/r.js`); }
   catch { console.error(`Coleta fora do ar em ${BASE}.`); process.exit(1); }
 
   const db = pool();

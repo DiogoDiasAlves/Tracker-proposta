@@ -13,7 +13,7 @@ import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const BASE = process.argv[2] || 'http://localhost:8787';
+const BASE = process.argv[2] || 'http://localhost:3100';
 const PAGE = BASE + '/demo/pagina-exemplo.html';
 const PORT = 9333;
 
@@ -74,8 +74,8 @@ async function main() {
   }
 
   // o servidor precisa estar de pé
-  try { await fetch(BASE + '/api/pages'); }
-  catch { console.error(`Servidor fora do ar em ${BASE}. Rode "npm start" antes.`); process.exit(1); }
+  try { await fetch(BASE + '/r.js'); }
+  catch { console.error(`App fora do ar em ${BASE}. Rode "npm run dev" antes.`); process.exit(1); }
 
   const profile = mkdtempSync(join(tmpdir(), 'regua-chrome-'));
   // Sobe em about:blank: o tracker lê o user-agent no carregamento, então a
@@ -147,23 +147,27 @@ async function main() {
 
   /* ── o que chegou no servidor ─────────────────────────────────── */
   console.log('\ndados que chegaram ao servidor');
-  const m = await (await fetch(`${BASE}/api/metrics?page=oferta-exemplo&version=1&device=mobile`)).json();
-  if (!m || !m.blocks || !m.blocks.length) {
+  const { pool } = await import('../db/index.js');
+  const dbv = pool();
+  const { compute } = await import('../db/metrics.js');
+  const m = await compute(dbv, 1, 'oferta-exemplo', '1', 'mobile');
+  if (!m || !m.steps || !m.steps.length) {
     ok('sessão registrada', false, 'nenhum bloco em oferta-exemplo/mobile');
   } else {
     ok('sessão chegou pelo tracker real', m.sessions >= 1, `${m.sessions} sessão(ões)`);
     ok('identificou como mobile pelo user-agent', true, 'emulação de iPhone reconhecida');
-    ok('blocos gravados com altura', m.blocks.every(b => b.height > 0),
-       m.blocks.slice(0, 3).map(b => `${b.block}:${b.height}px`).join(' '));
-    ok('tempo por bloco chegou', m.blocks.some(b => b.dwell_s >= 1),
-       m.blocks.filter(b => b.dwell_s >= 1).slice(0, 3).map(b => `${b.block}=${b.dwell_s}s`).join(' '));
-    const cta = m.blocks.find(b => b.cta_clicks > 0);
+    ok('blocos gravados com altura', m.steps.every(b => b.height > 0),
+       m.steps.slice(0, 3).map(b => `${b.step}:${b.height}px`).join(' '));
+    ok('tempo por bloco chegou', m.steps.some(b => b.dwell_s >= 1),
+       m.steps.filter(b => b.dwell_s >= 1).slice(0, 3).map(b => `${b.step}=${b.dwell_s}s`).join(' '));
+    const cta = m.steps.find(b => b.cta_clicks > 0);
     ok('clique no CTA chegou via sendBeacon', !!cta, cta ? `${cta.block}: ${cta.cta_clicks} clique(s)` : 'nenhum');
-    const comSaida = m.blocks.some(b => b.exit > 0);
+    const comSaida = m.steps.some(b => b.exit > 0);
     ok('atribuição de saída registrada', comSaida || !!cta,
        cta ? 'saiu via CTA, excluído da conta de abandono (correto)' : '');
   }
 
+  await dbv.end();
   console.log(falhas ? `\n${falhas} falha(s)\n` : '\nnavegador real: todos os casos passaram\n');
   process.exit(falhas ? 1 : 0);
 }

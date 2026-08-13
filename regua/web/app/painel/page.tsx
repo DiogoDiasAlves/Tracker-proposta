@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { contaAtual, ativos, facetas, leitura, siteKey } from '@/lib/dados';
+import { ativos, facetas, leitura, siteKey } from '@/lib/dados';
+import { exigirConta } from '@/lib/sessao';
 import { PillFiltro } from '@/components/ui/pill-filtro';
 import { VistaRetencao } from '@/components/painel/vista-retencao';
 import { IconArrowUpRight, IconPlug } from '@/components/icons';
@@ -10,7 +11,7 @@ const nf = (n: number, d = 1) => n.toFixed(d).replace('.', ',');
 
 export default async function Painel({ searchParams }: { searchParams: Busca }) {
   const sp = await searchParams;
-  const conta = await contaAtual();
+  const { conta } = await exigirConta();
   const lista = await ativos(conta.id);
   const comDados = lista.filter(a => a.sessions > 0);
 

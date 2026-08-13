@@ -9,14 +9,14 @@
   },
   "scripts": {
     "build": "node tracker/build.js",
-    "prestart": "npm run build",
-    "start": "node server/index.js",
     "simular": "node tools/simular.js",
     "pretestar": "npm run build",
     "testar": "node tools/testar-tracker.js",
     "testar:navegador": "node tools/testar-navegador.js",
     "testar:quiz": "node tools/testar-quiz.js",
-    "testar:real": "node tools/testar-pagina-real.js"
+    "testar:real": "node tools/testar-pagina-real.js",
+    "dev": "npm run build && npm --workspace web run dev -- --port 3100",
+    "migrar": "node tools/migrar-sqlite.js"
   },
   "dependencies": {
     "pg": "^8.23.0"

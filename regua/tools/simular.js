@@ -5,7 +5,7 @@
  *   node tools/simular.js [url] [sessoes]
  */
 
-const URL_BASE = process.argv[2] || 'http://localhost:8787';
+const URL_BASE = process.argv[2] || 'http://localhost:3100';
 const N = Number(process.argv[3] || 1200);
 const SITE_KEY = process.env.REGUA_KEY || 'rg_diogo';
 

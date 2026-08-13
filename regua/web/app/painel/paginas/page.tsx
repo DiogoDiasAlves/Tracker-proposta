@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { contaAtual, ativos, facetas, leitura, siteKey } from '@/lib/dados';
+import { ativos, facetas, leitura, siteKey } from '@/lib/dados';
+import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, AindaSemColeta } from '@/components/ui/estados';
 import { TEXTO, faixaQueda } from '@/lib/faixas';
 
@@ -8,7 +9,7 @@ export const metadata = { title: 'Páginas — Régua' };
 const nf = (n: number, d = 1) => n.toFixed(d).replace('.', ',');
 
 export default async function Paginas() {
-  const conta = await contaAtual();
+  const { conta } = await exigirConta();
   const lista = (await ativos(conta.id)).filter(a => a.kind === 'page' && a.sessions > 0);
 
   if (!lista.length) {

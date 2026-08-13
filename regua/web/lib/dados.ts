@@ -1,6 +1,8 @@
 import 'server-only';
 import { pool, listAssets, facets } from '@regua/db';
 import { compute, comparison, resumoAsset } from '@regua/db/metrics';
+import { metricasVideo } from '@regua/db/video';
+import { metricasQuiz } from '@regua/db/quiz';
 
 /* Pool único por processo. Em dev o Next recarrega o módulo a cada mudança,
    e sem isto cada recarga abriria um pool novo até estourar as conexões. */
@@ -75,3 +77,36 @@ export type Resumo = {
 
 export const resumo = (accountId: number, key: string) =>
   resumoAsset(db, accountId, key) as Promise<Resumo | null>;
+
+export type CurvaPonto = { s: number; ret: number; rev: number; conv: number };
+export type Video = {
+  video: string; tipo: string; duracao: number;
+  play_rate: number; sessoes_com_play: number; sessoes_medidas: number; sessoes_parciais: number;
+  plays_por_sessao: number; autoplay_pct: number; mudo_pct: number;
+  engajamento: number; assistido_mediano_s: number; assistido_mediano_pct: number;
+  retencao_final: number; pitch: number | null; retencao_pitch: number | null;
+  queda_abrupta: { de: number; ate: number; queda: number } | null;
+  curva: CurvaPonto[];
+};
+
+export type OpcaoQuiz = {
+  opcao: string; escolhas: number; participacao: number;
+  conversao: number; conclusao: number; abandono: number;
+};
+export type LeituraQuiz = {
+  sessoes: number; completos: number; conclusao: number; leads: number;
+  taxa_lead: number; conversao: number; minimo_caminho: number;
+  ultima_pergunta: string | null;
+  perguntas: { pergunta: string; ord: number; ultima: boolean; opcoes: OpcaoQuiz[] }[];
+  caminhos: {
+    caminho: string; respostas: number; sessoes: number;
+    conversoes: number; conversao: number; base_suficiente: boolean;
+  }[];
+};
+
+export const videos = (accountId: number, key: string, version: string, device: string) =>
+  metricasVideo(db, accountId, key, version, device) as
+    Promise<{ sessoes: number; conversoes: number; videos: Video[] } | null>;
+
+export const quiz = (accountId: number, key: string, version: string, device: string) =>
+  metricasQuiz(db, accountId, key, version, device) as Promise<LeituraQuiz | null>;

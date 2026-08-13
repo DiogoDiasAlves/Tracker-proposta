@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { contaAtual, facetas, leitura } from '@/lib/dados';
+import { facetas, leitura } from '@/lib/dados';
+import { exigirConta } from '@/lib/sessao';
 import { PillFiltro } from '@/components/ui/pill-filtro';
 import { VistaRetencao } from '@/components/painel/vista-retencao';
 
@@ -13,7 +14,7 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
   const { chave } = await params;
   const sp = await searchParams;
   const alvo = decodeURIComponent(chave);
-  const conta = await contaAtual();
+  const { conta } = await exigirConta();
 
   const f = await facetas(conta.id, alvo);
   if (!f.versions.length) notFound();
