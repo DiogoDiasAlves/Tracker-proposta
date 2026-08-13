@@ -115,13 +115,16 @@ export function TabelaLeads({ dados }: { dados: LeadsQuiz }) {
                   </td>
 
                   {etapas.map(e => {
-                    const resposta = l.respostas[e.chave];
+                    const chave = l.respostas[e.chave];
+                    // rótulo para ler, chave no title para quem precisa dela
+                    const resposta = chave
+                      ? (dados.rotulos[e.chave]?.[chave] ?? chave) : null;
                     const clicou = l.cliques.includes(e.chave);
                     const viu = l.vistos.includes(e.chave);
                     return (
                       <td key={e.chave} className="px-4 py-2.5">
                         {resposta ? (
-                          <span className="text-ink">{resposta}</span>
+                          <span className="text-ink" title={chave}>{resposta}</span>
                         ) : clicou ? (
                           <span className="text-accent">clicou</span>
                         ) : viu ? (

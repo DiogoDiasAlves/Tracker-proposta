@@ -89,8 +89,10 @@ export type Video = {
   curva: CurvaPonto[];
 };
 
+export type Rotulos = Record<string, Record<string, string>>;
+
 export type OpcaoQuiz = {
-  opcao: string; escolhas: number; participacao: number;
+  opcao: string; rotulo: string | null; escolhas: number; participacao: number;
   conversao: number; conclusao: number; abandono: number;
 };
 export type LeituraQuiz = {
@@ -98,6 +100,7 @@ export type LeituraQuiz = {
   taxa_lead: number; conversao: number; minimo_caminho: number;
   topo: TopoQuiz; otimizacao: Otimizacao[]; teto_perda: number;
   ultima_pergunta: string | null;
+  rotulos: Rotulos;
   perguntas: { pergunta: string; ord: number; ultima: boolean; opcoes: OpcaoQuiz[] }[];
   caminhos: {
     caminho: string; respostas: number; sessoes: number;
@@ -127,6 +130,7 @@ export type Otimizacao = {
 };
 
 export type LeadsQuiz = {
+  rotulos: Rotulos;
   etapas: { chave: string; numero: number }[];
   total: number; pagina: number; porPagina: number; paginas: number;
   linhas: {

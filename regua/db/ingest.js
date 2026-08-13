@@ -183,6 +183,27 @@ export async function ingest(db, raw) {
         );
       }
 
+      /* Dicionário de rótulos: uma linha por opção do quiz, nunca por sessão.
+         Passa pelos mesmos filtros — chave validada por `label`, e o texto
+         limitado. É conteúdo do quiz, não dado de visitante. */
+      if (p.qz.rt && typeof p.qz.rt === 'object') {
+        for (const [pergunta, opcoes] of Object.entries(p.qz.rt).slice(0, 50)) {
+          const q = label(pergunta);
+          if (!q || typeof opcoes !== 'object' || !opcoes) continue;
+          for (const [opcao, rotulo] of Object.entries(opcoes).slice(0, 50)) {
+            const o = label(opcao), r = text(rotulo, 120);
+            if (!o || !r) continue;
+            await c.query(`
+              INSERT INTO quiz_labels (asset_id, pergunta, opcao, rotulo)
+              VALUES ($1,$2,$3,$4)
+              ON CONFLICT (asset_id, pergunta, opcao) DO UPDATE SET
+                rotulo = EXCLUDED.rotulo, atualizado_em = now()`,
+              [aid, q, o, r]
+            );
+          }
+        }
+      }
+
       if (p.qz.c || p.qz.l) {
         await c.query(
           `UPDATE sessions SET quiz_completo = quiz_completo OR $1,

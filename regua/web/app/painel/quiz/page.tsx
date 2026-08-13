@@ -155,7 +155,9 @@ export default async function Quiz({ searchParams }: Props) {
                   const preocupa = !p.ultima && o.abandono >= 30;
                   return (
                     <div key={o.opcao} className="flex items-center gap-3 text-[12px]">
-                      <span className="w-32 shrink-0 truncate font-mono text-muted">{o.opcao}</span>
+                      <span className="w-40 shrink-0 truncate text-muted" title={o.opcao}>
+                        {o.rotulo ?? <span className="font-mono">{o.opcao}</span>}
+                      </span>
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                         <div className="h-full rounded-full bg-mark-base/70" style={{ width: `${o.participacao}%` }} />
                       </div>

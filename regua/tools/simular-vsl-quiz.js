@@ -70,6 +70,14 @@ const PERGUNTAS = [
 ];
 const OFERTA = 'resultado';
 
+// O que o coletor leria dos botões numa página real.
+const ROTULOS = {
+  objetivo:  { emagrecer: 'Emagrecer', massa: 'Ganhar massa', saude: 'Mais disposição' },
+  prazo:     { '30-dias': 'Em 30 dias', '90-dias': 'Em 90 dias', 'sem-pressa': 'Sem pressa' },
+  orcamento: { 'ate-100': 'Até R$ 100', '100-300': 'De R$ 100 a R$ 300', 'acima-300': 'Acima de R$ 300' },
+  contato:   { aceito: 'Receber meu plano' },
+};
+
 function sortear(opcoes) {
   let r = Math.random();
   for (const [chave, peso] of opcoes) { if ((r -= peso) <= 0) return chave; }
@@ -86,7 +94,7 @@ async function sessaoQuiz(i, device) {
   const base = { s: sid, k: CHAVE, p: 'quiz-diagnostico', v: '1', d: device };
   if (Math.random() < 0.36) {
     const so = [{ i: PERGUNTAS[0][0], o: 0, h: 420, t: Math.round(rand(600, 4000)), e: 1 }];
-    await post({ ...base, n: 1, qz: { e: so },
+    await post({ ...base, n: 1, qz: { e: so, rt: ROTULOS },
       st: { us: 'meta', um: 'cpc', uc: 'campanha-1', uo: String(1200000 + (i % 4)), ut: null, rf: null } });
     await post({ ...base, n: 2, qz: { e: so }, x: { b: PERGUNTAS[0][0], cta: 0 } });
     return;
@@ -119,7 +127,7 @@ async function sessaoQuiz(i, device) {
   }
   const converteu = cliques.length > 0 && Math.random() < 0.31;
 
-  const qz = { e: etapas, r: respostas };
+  const qz = { e: etapas, r: respostas, rt: ROTULOS };
   if (completou) qz.c = 1;
   if (lead) qz.l = 1;
 

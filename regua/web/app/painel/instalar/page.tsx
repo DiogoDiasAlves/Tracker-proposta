@@ -83,12 +83,17 @@ export default async function Instalar() {
 
 <div data-quiz-step="2" data-quiz-question="prazo"> ... </div>`}</Codigo>
         <div className="mt-4 rounded-xl border border-accent/25 bg-accent/[.06] p-4 text-[12.5px] leading-relaxed text-muted">
-          <strong className="font-semibold text-accent">Sobre resposta de quiz.</strong> Só a
-          chave da opção é gravada, nunca o texto. Campo de digitação livre não é lido —
-          nem o valor, nem o tamanho. Resposta de quiz costuma ser dado de saúde, corpo ou
-          dinheiro, e o coletor bloqueia <span className="font-mono">input</span>,{' '}
+          <strong className="font-semibold text-accent">Sobre resposta de quiz.</strong> Da
+          escolha de cada pessoa grava-se só a <span className="text-ink">chave</span> da opção.
+          O <span className="text-ink">texto do botão</span> é lido uma vez e guardado num
+          dicionário do quiz — uma linha por alternativa, não por visitante — para o painel
+          mostrar &quot;Acima de R$ 300&quot; em vez de{' '}
+          <span className="font-mono">acima-300</span>. É copy sua, igual para todo mundo.
+          <br /><br />
+          Campo de digitação livre <span className="text-ink">nunca</span> é lido — nem o valor,
+          nem o tamanho. O coletor pula <span className="font-mono">input</span>,{' '}
           <span className="font-mono">textarea</span> e <span className="font-mono">select</span> por
-          construção, não por política.
+          construção, e há teste que falha se qualquer valor digitado chegar ao banco.
         </div>
       </section>
 

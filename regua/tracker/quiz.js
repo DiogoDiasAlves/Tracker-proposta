@@ -14,6 +14,44 @@ var perguntas = [];
 var respostas = [];     // [{q: pergunta, o: chave da opção, t: quando}]
 var concluiu = 0;
 var enviouLead = 0;
+var rotulos = null;      // {pergunta: {opcao: texto}} — montado uma vez
+var rotulosEnviados = false;
+
+/* Rótulo da alternativa. É copy do dono do quiz: igual para todo visitante,
+   escrita por ele, não digitada por ninguém. É por isso que pode ser lido —
+   ao contrário de valor de campo, que é dado da pessoa.
+
+   Três travas: só de elemento que VOCÊ marcou com data-quiz-option, nunca de
+   input/textarea/select, e com teto de tamanho. */
+function lerRotulos() {
+  var out = {};
+  var nos = document.querySelectorAll('[data-quiz-option]');
+  for (var i = 0; i < nos.length; i++) {
+    var el = nos[i];
+    var tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') continue;
+
+    var chave = el.getAttribute('data-quiz-option');
+    if (!chave || !/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(chave)) continue;
+
+    var texto = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (!texto) continue;
+
+    var q = null, pai = el;
+    while (pai && pai !== document.body) {
+      if (pai.hasAttribute && pai.hasAttribute('data-quiz-step')) {
+        q = pai.getAttribute('data-quiz-question') || pai.getAttribute('data-quiz-step');
+        break;
+      }
+      pai = pai.parentNode;
+    }
+    if (!q) continue;
+
+    if (!out[q]) out[q] = {};
+    out[q][chave] = texto;
+  }
+  return out;
+}
 
 register({
   name: 'quiz',
@@ -24,6 +62,7 @@ register({
   },
 
   scan: function () {
+    rotulos = null;   // o DOM mudou; relê na próxima montagem do payload
     var nodes = document.querySelectorAll('[data-quiz-step]');
     if (nodes.length === perguntas.length) return;
 
@@ -110,6 +149,12 @@ register({
     var out = { qz: { e: etapas, r: respostas.slice(0, 100) } };
     if (concluiu) out.qz.c = 1;
     if (enviouLead) out.qz.l = 1;
+
+    // Uma vez por carregamento: o dicionário é do quiz, não da sessão.
+    if (!rotulosEnviados) {
+      if (!rotulos) rotulos = lerRotulos();
+      if (Object.keys(rotulos).length) { out.qz.rt = rotulos; rotulosEnviados = true; }
+    }
     return out;
   },
 

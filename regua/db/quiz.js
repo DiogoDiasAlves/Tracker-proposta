@@ -84,6 +84,7 @@ export async function metricasQuiz(db, accountId, key, version, device) {
                         .reduce((s, x) => s + x.escolhas, 0);
     porPergunta.get(l.pergunta).push({
       opcao: l.opcao,
+      rotulo: null,   // preenchido abaixo, com o dicionário
       escolhas: l.escolhas,
       participacao: total ? (l.escolhas / total) * 100 : 0,
       conversao: l.escolhas ? (l.converteram / l.escolhas) * 100 : 0,
@@ -207,6 +208,13 @@ export async function metricasQuiz(db, accountId, key, version, device) {
     }
   }
 
+  /* Rótulo é só exibição. A chave continua sendo a identidade em todo lugar:
+     reescrever a copy troca o rótulo e mantém o histórico comparável. */
+  const dicionario = await rotulosDoQuiz(db, asset.id);
+  for (const [pergunta, opcoes] of porPergunta) {
+    for (const o of opcoes) o.rotulo = dicionario[pergunta]?.[o.opcao] ?? null;
+  }
+
   const topo = {
     visitantes: { valor: visitantes, rotulo: 'Visitantes',
                   nota: 'acessaram o funil' },
@@ -253,6 +261,7 @@ export async function metricasQuiz(db, accountId, key, version, device) {
        definição: a sessão acaba ali. Mostrar 100% de abandono como problema
        seria o mesmo erro de ordenar blocos por saída absoluta. */
     ultima_pergunta: ultima,
+    rotulos: dicionario,
     perguntas: [...porPergunta]
       .map(([pergunta, opcoes]) => ({
         pergunta, opcoes,
@@ -272,6 +281,19 @@ export async function metricasQuiz(db, accountId, key, version, device) {
 
    Só chave de opção aparece aqui, nunca texto digitado — a tabela herda a
    mesma garantia do coletor, porque o banco não tem onde guardar o resto. */
+/** Dicionário de rótulos do quiz: {pergunta: {opcao: texto}}. */
+export async function rotulosDoQuiz(db, assetId) {
+  const { rows } = await db.query(
+    'SELECT pergunta, opcao, rotulo FROM quiz_labels WHERE asset_id = $1', [assetId]
+  );
+  const out = {};
+  for (const r of rows) {
+    if (!out[r.pergunta]) out[r.pergunta] = {};
+    out[r.pergunta][r.opcao] = r.rotulo;
+  }
+  return out;
+}
+
 export async function respostasPorLead(
   db, accountId, key, version, device, { pagina = 1, porPagina = 25, busca = '' } = {}
 ) {
@@ -324,7 +346,10 @@ export async function respostasPorLead(
     LIMIT ${porPagina} OFFSET ${off}
   `, args)).rows;
 
+  const rotulos = await rotulosDoQuiz(db, asset.id);
+
   return {
+    rotulos,
     etapas: ordem.map((o, i) => ({ chave: o.step, numero: i + 1 })),
     total,
     pagina,

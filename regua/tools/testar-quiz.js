@@ -153,11 +153,14 @@ async function main() {
     UNION ALL SELECT 'sessions', COALESCE(utm_source,'') || COALESCE(utm_content,'') ||
                                  COALESCE(referrer_host,'') || COALESCE(exit_step,'') FROM sessions
     UNION ALL SELECT 'assets', key FROM assets
+    -- quiz_labels guarda TEXTO, então é justamente onde algo poderia escapar.
+    -- É a tabela mais importante desta varredura, não a menos.
+    UNION ALL SELECT 'quiz_labels', pergunta || '/' || opcao || '=' || rotulo FROM quiz_labels
   `);
   const agulhas = [EMAIL, TELEFONE, 'exemplo.com', '987654321'];
   const achados = varredura.rows.filter(r => agulhas.some(a => (r.v || '').includes(a)));
   ok('e-mail e telefone digitados NÃO estão no banco', achados.length === 0,
-     achados.length ? JSON.stringify(achados.slice(0, 3)) : 'varridas 5 tabelas, nenhuma ocorrência');
+     achados.length ? JSON.stringify(achados.slice(0, 3)) : 'varridas 6 tabelas, nenhuma ocorrência');
 
   await db.end();
   console.log(falhas ? `\n${falhas} falha(s)\n` : '\nquiz: todos os casos passaram\n');
