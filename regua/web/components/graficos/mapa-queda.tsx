@@ -1,6 +1,7 @@
 'use client';
 
 import type { Etapa } from '@/lib/dados';
+import { faixaQueda, MARCA, TEXTO } from '@/lib/faixas';
 
 /* Mapa de queda.
    A queda tem leitura de ESTADO, não de rampa contínua: até 10% é normal,
@@ -10,27 +11,6 @@ import type { Etapa } from '@/lib/dados';
    E cor nunca sozinha: cada linha traz comprimento de barra proporcional à
    queda MAIS o número em texto. Quem não distingue as três matizes lê pelo
    tamanho e pelo dígito. */
-
-export function faixaQueda(drop: number | null, primeiro: boolean) {
-  if (primeiro || drop === null) return 'base' as const;
-  if (drop < 10) return 'bom' as const;
-  if (drop < 20) return 'atencao' as const;
-  return 'ruim' as const;
-}
-
-export const MARCA = {
-  bom: 'var(--color-mark-good)',
-  atencao: 'var(--color-mark-warn)',
-  ruim: 'var(--color-mark-bad)',
-  base: 'var(--color-mark-base)',
-};
-
-export const TEXTO = {
-  bom: 'var(--color-accent)',
-  atencao: 'var(--color-warn)',
-  ruim: 'var(--color-danger)',
-  base: 'var(--color-muted)',
-};
 
 export function MapaQueda({
   etapas, selecionado, onSelecionar,

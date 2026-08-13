@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import type { Leitura } from '@/lib/dados';
 import { CurvaRetencao } from '../graficos/curva-retencao';
-import { MapaQueda, faixaQueda, TEXTO } from '../graficos/mapa-queda';
+import { MapaQueda } from '../graficos/mapa-queda';
+import { faixaQueda, TEXTO } from '@/lib/faixas';
 
 const CORES_VEREDITO: Record<string, string> = {
   TRAVA: 'var(--color-danger)',

@@ -115,6 +115,59 @@ export async function compute(db, accountId, key, version, device) {
   };
 }
 
+/* Resumo de resultado de um asset inteiro, somando versões e dispositivos.
+   É o que dá para comparar entre páginas DIFERENTES: elas não têm blocos em
+   comum, então comparar "bloco 3" de uma com "bloco 3" da outra não significa
+   nada. O que resta — e basta — é o resultado. */
+export async function resumoAsset(db, accountId, key) {
+  const asset = (await db.query(
+    `SELECT id, kind FROM assets WHERE account_id = $1 AND key = $2`, [accountId, key]
+  )).rows[0];
+  if (!asset) return null;
+
+  const s = (await db.query(`
+    SELECT COUNT(*)::int AS sessoes,
+           COUNT(*) FILTER (WHERE converted)::int AS conversoes,
+           COUNT(DISTINCT device)::int AS dispositivos,
+           EXTRACT(EPOCH FROM MIN(started_at)) * 1000 AS inicio,
+           EXTRACT(EPOCH FROM MAX(last_seen_at)) * 1000 AS fim
+    FROM sessions WHERE asset_id = $1
+  `, [asset.id])).rows[0];
+
+  const p = (await db.query(`
+    WITH por_sessao AS (
+      SELECT b.session_id,
+             MAX(b.ord) AS mais_fundo,
+             SUM(b.dwell_ms) AS tempo
+      FROM step_stats b JOIN sessions s ON s.id = b.session_id
+      WHERE s.asset_id = $1 GROUP BY b.session_id
+    ),
+    total AS (SELECT COUNT(DISTINCT step)::float AS n FROM step_stats b
+              JOIN sessions s ON s.id = b.session_id WHERE s.asset_id = $1)
+    SELECT
+      COALESCE(AVG(mais_fundo + 1) / NULLIF((SELECT n FROM total), 0) * 100, 0)::float AS profundidade,
+      COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY tempo), 0)::float AS tempo_med
+    FROM por_sessao
+  `, [asset.id])).rows[0];
+
+  const c = (await db.query(`
+    SELECT COUNT(DISTINCT c.session_id)::int AS com_clique
+    FROM cta_clicks c JOIN sessions s ON s.id = c.session_id
+    WHERE s.asset_id = $1
+  `, [asset.id])).rows[0];
+
+  return {
+    key, kind: asset.kind,
+    sessoes: s.sessoes,
+    conversoes: s.conversoes,
+    conversao: s.sessoes ? (s.conversoes / s.sessoes) * 100 : 0,
+    ctr: s.sessoes ? (c.com_clique / s.sessoes) * 100 : 0,
+    profundidade: p.profundidade,
+    tempo_med_s: p.tempo_med / 1000,
+    dias: Math.max(1, Math.ceil((s.fim - s.inicio) / 86400000)),
+  };
+}
+
 /** Comparação sequencial de versões do MESMO asset (mesmas etapas). */
 export async function comparison(db, accountId, key, a, b, device) {
   const A = await compute(db, accountId, key, a, device);

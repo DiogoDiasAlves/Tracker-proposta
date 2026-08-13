@@ -1,6 +1,6 @@
 import 'server-only';
 import { pool, listAssets, facets } from '@regua/db';
-import { compute, comparison } from '@regua/db/metrics';
+import { compute, comparison, resumoAsset } from '@regua/db/metrics';
 
 /* Pool único por processo. Em dev o Next recarrega o módulo a cada mudança,
    e sem isto cada recarga abriria um pool novo até estourar as conexões. */
@@ -67,3 +67,11 @@ export const leitura = (accountId: number, key: string, version: string, device:
 export const comparar = (
   accountId: number, key: string, a: string, b: string, device: string
 ) => comparison(db, accountId, key, a, b, device);
+
+export type Resumo = {
+  key: string; kind: string; sessoes: number; conversoes: number;
+  conversao: number; ctr: number; profundidade: number; tempo_med_s: number; dias: number;
+};
+
+export const resumo = (accountId: number, key: string) =>
+  resumoAsset(db, accountId, key) as Promise<Resumo | null>;

@@ -4,5 +4,8 @@
   "private": true,
   "type": "module",
   "main": "verdict.js",
-  "exports": { ".": "./verdict.js" }
+  "exports": {
+    ".": "./verdict.js",
+    "./teste": "./teste.js"
+  }
 }
