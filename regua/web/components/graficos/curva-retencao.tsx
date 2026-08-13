@@ -14,12 +14,15 @@ const COR_BASE = 'var(--color-mark-base)';
 type Props = {
   etapas: Etapa[];
   base?: { rotulo: string; valores: (number | null)[] } | null;
+  /* Sobrescreve os valores da série destacada. Serve à comparação de versões:
+     o eixo e os nomes vêm de uma versão, os valores em destaque da outra. */
+  valores?: (number | null)[];
   rotuloSerie: string;
   selecionado: number;
   onSelecionar: (i: number) => void;
 };
 
-export function CurvaRetencao({ etapas, base, rotuloSerie, selecionado, onSelecionar }: Props) {
+export function CurvaRetencao({ etapas, base, valores, rotuloSerie, selecionado, onSelecionar }: Props) {
   const uid = useId().replace(/:/g, '');
   const [hover, setHover] = useState<number | null>(null);
 
@@ -46,9 +49,9 @@ export function CurvaRetencao({ etapas, base, rotuloSerie, selecionado, onSeleci
       vals.forEach((v, i) => { if (v != null) d += ` L${x(i)},${y(v)} L${x(i + 1)},${y(v)}`; });
       return d + ` L${W - mr},${y(0)} Z`;
     };
-    const principal = etapas.map(e => e.reach);
+    const principal = valores ?? etapas.map(e => e.reach);
     return { linha: linha(principal), area: area(principal), base: base ? linha(base.valores) : null };
-  }, [etapas, base, n]);
+  }, [etapas, base, valores, n]);
 
   const ativo = hover ?? selecionado;
   const eAtiva = etapas[ativo];
@@ -95,7 +98,7 @@ export function CurvaRetencao({ etapas, base, rotuloSerie, selecionado, onSeleci
         <path d={caminhos.linha} fill="none" stroke={COR_LINHA} strokeWidth="2" strokeLinejoin="round" />
 
         {/* marcador do ponto ativo: anel na cor da superfície separa a marca do traço */}
-        <circle cx={x(ativo) + bw / 2} cy={y(eAtiva.reach)} r="5.5"
+        <circle cx={x(ativo) + bw / 2} cy={y((valores?.[ativo] ?? eAtiva.reach) ?? eAtiva.reach)} r="5.5"
                 fill={COR_LINHA} stroke="var(--color-surface)" strokeWidth="2" />
 
         {/* eixo: número do bloco, nome só no ativo — rótulo em todos vira ruído */}

@@ -109,9 +109,9 @@ export default async function Painel({ searchParams }: { searchParams: Busca }) 
                 : 'Ainda não há queda destacada o suficiente para apontar um culpado.'}
             </p>
           </div>
-          <Link href="/painel/comparar"
+          <Link href={`/painel/paginas/${encodeURIComponent(alvo)}?versao=${versao}&disp=${disp}`}
                 className="relative z-10 mt-4 flex items-center justify-between rounded-xl border border-accent/25 bg-accent/10 px-3.5 py-2.5 text-[12.5px] text-accent transition hover:bg-accent/20">
-            Comparar versões
+            {f.versions.length > 1 ? 'Comparar versões' : 'Abrir a página'}
             <IconArrowUpRight className="h-4 w-4" />
           </Link>
         </div>

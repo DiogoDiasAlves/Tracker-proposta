@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { facetas, leitura } from '@/lib/dados';
+import { facetas, leitura, comparar } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { PillFiltro } from '@/components/ui/pill-filtro';
 import { VistaRetencao } from '@/components/painel/vista-retencao';
+import { VistaVersoes } from '@/components/painel/vista-versoes';
 
 type Props = {
   params: Promise<{ chave: string }>;
-  searchParams: Promise<{ versao?: string; disp?: string }>;
+  searchParams: Promise<{ versao?: string; disp?: string; vs?: string }>;
 };
 
 export default async function PaginaDetalhe({ params, searchParams }: Props) {
@@ -25,6 +26,10 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
 
   const dados = await leitura(conta.id, alvo, versao, disp);
   if (!dados || !dados.steps.length) notFound();
+
+  // `vs` é a versão contra a qual comparar. Só entra se existir e for outra.
+  const contra = sp.vs && sp.vs !== versao && f.versions.includes(sp.vs) ? sp.vs : null;
+  const comp = contra ? await comparar(conta.id, alvo, versao, contra, disp) : null;
 
   return (
     <div className="space-y-5">
@@ -47,15 +52,15 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
           <PillFiltro param="disp" rotulo="Dispositivo" valor={disp}
                       opcoes={f.devices.map(d => ({ valor: d, texto: d }))} />
           {f.versions.length > 1 && (
-            <Link href={`/painel/comparar?pagina=${encodeURIComponent(alvo)}`}
-                  className="btn-ghost px-3.5 py-2.5 text-[12.5px]">
-              Comparar versões
-            </Link>
+            <PillFiltro param="vs" rotulo="Comparar com" valor={contra ?? '—'}
+                        opcoes={[{ valor: '', texto: '—' },
+                                 ...f.versions.filter(v => v !== versao)
+                                   .map(v => ({ valor: v, texto: `v${v}` }))]} />
           )}
         </div>
       </header>
 
-      <VistaRetencao leitura={dados} />
+      {comp ? <VistaVersoes c={comp} /> : <VistaRetencao leitura={dados} />}
     </div>
   );
 }

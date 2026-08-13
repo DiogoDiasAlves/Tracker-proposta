@@ -66,9 +66,20 @@ export const facetas = (accountId: number, key: string) =>
 export const leitura = (accountId: number, key: string, version: string, device: string) =>
   compute(db, accountId, key, version, device) as Promise<Leitura | null>;
 
+export type ComparacaoVersoes = {
+  a: Leitura; b: Leitura; enough: boolean; caveat: string;
+  diff: {
+    step: string;
+    drop_a: number | null; drop_b: number | null;
+    reach_a: number; reach_b: number | null;
+    per100_a: number; per100_b: number | null;
+    cta_a: number; cta_b: number | null;
+  }[];
+};
+
 export const comparar = (
   accountId: number, key: string, a: string, b: string, device: string
-) => comparison(db, accountId, key, a, b, device);
+) => comparison(db, accountId, key, a, b, device) as Promise<ComparacaoVersoes | null>;
 
 export type Resumo = {
   key: string; kind: string; sessoes: number; conversoes: number;
