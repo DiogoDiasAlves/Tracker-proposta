@@ -17,7 +17,9 @@
     "testar:real": "node tools/testar-pagina-real.js",
     "dev": "npm run build && npm --workspace web run dev -- --port 3100",
     "migrar": "node tools/migrar-sqlite.js",
-    "espalhar": "node tools/espalhar-no-tempo.js"
+    "espalhar": "node tools/espalhar-no-tempo.js",
+    "testar:motores": "node tools/testar-navegadores.js",
+    "testar:players": "node tools/testar-players.js"
   },
   "dependencies": {
     "pg": "^8.23.0"
@@ -28,6 +30,7 @@
     "web"
   ],
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "playwright": "^1.62.1"
   }
 }

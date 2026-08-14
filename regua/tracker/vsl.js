@@ -64,24 +64,149 @@ function adaptadorVturb(el) {
   };
 }
 
-/* YouTube e Vimeo só respondem se o SDK deles já estiver na página. Não
-   carregamos SDK de terceiro por conta própria: seria peso e uma requisição
-   externa que o dono da página não pediu. */
-function adaptadorYoutube(p) {
+/* ── YouTube e Vimeo ──────────────────────────────────────────────────
+   Estes vivem em iframe de outro domínio: o navegador não deixa ler nada de
+   dentro. A única porta é a API que cada um publica, e ela chega por um SDK
+   que precisa ser carregado.
+
+   Carregamos SOB DEMANDA: só quando existe um iframe daquele player na
+   página. Página sem YouTube não paga requisição nenhuma — cobrar de todo
+   mundo pelo que só alguns usam seria o tipo de peso que o dono da página
+   não pediu.
+
+   O estado de cada player fica aqui, alimentado pelos eventos deles, e o
+   `tick` do núcleo só lê. Vimeo é todo baseado em promessa e não responde a
+   pergunta síncrona; guardar o último valor recebido resolve os dois. */
+var externos = {};      // id do iframe -> { pos, dur, tocando, mudo }
+var sdkPedido = {};
+
+function idDoQuadro(el) {
+  if (!el.__rgId) el.__rgId = 'rg' + Math.random().toString(36).slice(2, 9);
+  return el.__rgId;
+}
+
+function carregarSdk(url, chave, aoCarregar) {
+  if (sdkPedido[chave]) return;
+  sdkPedido[chave] = 1;
+  var s = document.createElement('script');
+  s.src = url;
+  s.async = true;
+  s.onload = function () { try { aoCarregar(); } catch (e) {} };
+  s.onerror = function () { /* rede bloqueada: o vídeo fica sem medição */ };
+  document.head.appendChild(s);
+}
+
+function adaptadorExterno(id, tipo) {
   return {
-    tipo: 'youtube',
-    duracao: function () { try { return p.getDuration() || 0; } catch (e) { return 0; } },
-    posicao: function () { try { return p.getCurrentTime(); } catch (e) { return null; } },
-    tocando: function () { try { return p.getPlayerState() === 1; } catch (e) { return false; } },
-    mudo: function () { try { return p.isMuted(); } catch (e) { return false; } },
-    autoplay: function () { return false; },
+    tipo: tipo,
+    duracao: function () { return (externos[id] && externos[id].dur) || 0; },
+    posicao: function () {
+      var e = externos[id];
+      return e && typeof e.pos === 'number' ? e.pos : null;
+    },
+    tocando: function () { return !!(externos[id] && externos[id].tocando); },
+    mudo: function () { return !!(externos[id] && externos[id].mudo); },
+    autoplay: function () { return !!(externos[id] && externos[id].autoplay); },
   };
+}
+
+/* YouTube. A API só enxerga o iframe se ele tiver enablejsapi=1 no src.
+   Quando falta, acrescentamos — o que recarrega o iframe, e por isso só
+   fazemos na primeira varredura, antes de qualquer play. Sem isso o vídeo
+   simplesmente não seria mensurável, e "sem configuração" viraria mentira. */
+function prepararYoutube(quadro) {
+  var src = quadro.getAttribute('src') || '';
+  if (!/youtube(-nocookie)?\.com\/embed\//.test(src)) return false;
+
+  if (!/[?&]enablejsapi=1/.test(src)) {
+    quadro.setAttribute('src', src + (src.indexOf('?') < 0 ? '?' : '&') + 'enablejsapi=1');
+  }
+  var id = idDoQuadro(quadro);
+  if (externos[id]) return true;
+  externos[id] = { pos: null, dur: 0, tocando: false, mudo: false, autoplay: /[?&]autoplay=1/.test(src) };
+
+  function criar() {
+    if (!window.YT || !window.YT.Player) return;
+    try {
+      var p = new window.YT.Player(quadro, {
+        events: {
+          onReady: function (ev) {
+            var e = externos[id];
+            e.dur = ev.target.getDuration() || 0;
+            e.mudo = !!ev.target.isMuted();
+          },
+          onStateChange: function (ev) {
+            externos[id].tocando = ev.data === 1;   // 1 = PLAYING
+          },
+        },
+      });
+      // a posição não vem por evento: perguntamos no mesmo ritmo do núcleo
+      setInterval(function () {
+        try {
+          var e = externos[id];
+          e.pos = p.getCurrentTime();
+          if (!e.dur) e.dur = p.getDuration() || 0;
+          e.mudo = !!p.isMuted();
+        } catch (x) {}
+      }, TICK);
+    } catch (x) {}
+  }
+
+  if (window.YT && window.YT.Player) criar();
+  else {
+    var antes = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function () {
+      if (typeof antes === 'function') { try { antes(); } catch (x) {} }
+      criar();
+    };
+    carregarSdk('https://www.youtube.com/iframe_api', 'yt', function () {});
+  }
+  return true;
+}
+
+/* Vimeo. O SDK aceita qualquer iframe do player, sem parâmetro extra. Toda a
+   API é assíncrona, então guardamos o último valor que os eventos trouxeram. */
+function prepararVimeo(quadro) {
+  var src = quadro.getAttribute('src') || '';
+  if (!/player\.vimeo\.com\/video\//.test(src)) return false;
+
+  var id = idDoQuadro(quadro);
+  if (externos[id]) return true;
+  externos[id] = { pos: null, dur: 0, tocando: false, mudo: false, autoplay: /[?&]autoplay=1/.test(src) };
+
+  function criar() {
+    if (!window.Vimeo || !window.Vimeo.Player) return;
+    try {
+      var p = new window.Vimeo.Player(quadro);
+      p.getDuration().then(function (d) { externos[id].dur = d || 0; }).catch(function () {});
+      p.on('timeupdate', function (d) {
+        var e = externos[id];
+        e.pos = d.seconds;
+        if (!e.dur && d.duration) e.dur = d.duration;
+      });
+      p.on('play', function () { externos[id].tocando = true; });
+      p.on('pause', function () { externos[id].tocando = false; });
+      p.on('ended', function () { externos[id].tocando = false; });
+      p.getVolume().then(function (v) { externos[id].mudo = v === 0; }).catch(function () {});
+    } catch (x) {}
+  }
+
+  if (window.Vimeo && window.Vimeo.Player) criar();
+  else carregarSdk('https://player.vimeo.com/api/player.js', 'vimeo', criar);
+  return true;
 }
 
 function nomeDe(el, i) {
   var marcado = el.getAttribute && el.getAttribute('data-vsl');
   if (marcado) return marcado;
-  var src = (el.currentSrc || el.src || el.getAttribute('src') || '') + '';
+  var src = (el.currentSrc || el.src || (el.getAttribute && el.getAttribute('src')) || '') + '';
+
+  // iframe: o identificador útil é o id do vídeo, não o nome do arquivo
+  var yt = src.match(/\/embed\/([a-zA-Z0-9_-]{6,})/);
+  if (yt) return 'yt-' + yt[1];
+  var vm = src.match(/player\.vimeo\.com\/video\/(\d+)/);
+  if (vm) return 'vimeo-' + vm[1];
+
   var base = src.split('?')[0].split('/').pop() || '';
   base = base.replace(/\.[a-z0-9]+$/i, '').replace(/[^a-z0-9_-]/gi, '-').slice(0, 40);
   return base || ('video-' + (i + 1));
@@ -112,7 +237,7 @@ register({
   detect: function () {
     return !!(document.querySelector('video') ||
               document.querySelector('vturb-smartplayer') ||
-              window.YT);
+              document.querySelector('iframe[src*="youtube"], iframe[src*="youtube-nocookie"], iframe[src*="player.vimeo.com"]'));
   },
 
   scan: function () {
@@ -126,10 +251,12 @@ register({
     var vturb = document.querySelectorAll('vturb-smartplayer');
     for (var b = 0; b < vturb.length; b++) registrar(vturb[b], adaptadorVturb(vturb[b]), i++);
 
-    if (window.reguaYT && window.reguaYT.length) {
-      for (var c = 0; c < window.reguaYT.length; c++) {
-        registrar(window.reguaYT[c].el || {}, adaptadorYoutube(window.reguaYT[c]), i++);
-      }
+    var quadros = document.querySelectorAll(
+      'iframe[src*="youtube"], iframe[src*="youtube-nocookie"], iframe[src*="player.vimeo.com"]');
+    for (var c = 0; c < quadros.length; c++) {
+      var q = quadros[c];
+      if (prepararYoutube(q)) registrar(q, adaptadorExterno(idDoQuadro(q), 'youtube'), i++);
+      else if (prepararVimeo(q)) registrar(q, adaptadorExterno(idDoQuadro(q), 'vimeo'), i++);
     }
   },
 
@@ -201,8 +328,13 @@ register({
 
   debug: function () {
     return videos.map(function (v) {
+      var dur = 0;
+      try { dur = Math.round(v.ad.duracao()); } catch (e) {}
       return {
         video: v.id, tipo: v.ad.tipo, plays: v.plays,
+        // a duração prova que a ponte com o player está viva: ela só chega
+        // se o adaptador conseguiu falar com ele
+        duracao_s: dur,
         assistido_s: v.secs.filter(Boolean).length,
         ate_s: Math.round(v.max),
         parcial: v.parcial,

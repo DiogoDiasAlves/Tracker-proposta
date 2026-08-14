@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Players de terceiro — teste do coletor de vídeo</title>
+<style>
+  body{margin:0;background:#0A0C12;color:#EEF2F8;font:16px/1.6 system-ui,sans-serif;padding:24px}
+  section{max-width:760px;margin:0 auto 40px}
+  h2{font-size:18px;margin:0 0 10px}
+  iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:12px}
+  .hud{position:fixed;right:12px;bottom:12px;background:#0F131C;border:1px solid #1F2637;
+       color:#9AA3B8;font:11px/1.6 ui-monospace,monospace;padding:12px;border-radius:10px;max-width:320px}
+  .hud b{color:#2DF5A5}
+</style>
+</head>
+<body>
+
+<section>
+  <h2>YouTube — sem enablejsapi de propósito</h2>
+  <!-- O src NÃO tem enablejsapi. O coletor precisa acrescentar sozinho,
+       senão a promessa de "sem configuração" é falsa. -->
+  <iframe src="https://www.youtube.com/embed/aqz-KE-bpKQ" allow="autoplay"></iframe>
+</section>
+
+<section>
+  <h2>Vimeo</h2>
+  <iframe src="https://player.vimeo.com/video/76979871" allow="autoplay"></iframe>
+</section>
+
+<div class="hud" id="hud">carregando…</div>
+<script>
+  setInterval(function () {
+    if (!window.regua) return;
+    var v = window.regua.debug().vsl || [];
+    document.getElementById('hud').innerHTML = '<b>coletor de vídeo</b><br>' +
+      (v.map(function (x) {
+        return x.tipo + ' · ' + x.video + '<br>&nbsp;&nbsp;plays ' + x.plays +
+               ' · ' + x.assistido_s + 's · até ' + x.ate_s + 's' + (x.parcial ? ' · PARCIAL' : '');
+      }).join('<br>') || '(nenhum vídeo detectado)');
+  }, 500);
+</script>
+<script src="/r.js" data-key="rg_diogo" data-page="players-exemplo" data-version="1" defer></script>
+</body>
+</html>

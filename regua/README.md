@@ -392,10 +392,11 @@ Honestidade sobre os limites do que foi verificado:
 | Item | Estado |
 |---|---|
 | Página de vendas, vídeo e quiz | testados em Chrome real, incluindo página pública na internet |
+| Chromium, WebKit (Safari) e Firefox | os três passam a mesma jornada, incluindo o beacon de saída |
+| YouTube | testado com embed real; o coletor acrescenta `enablejsapi` sozinho |
+| Vimeo | ponte com o SDK verificada (lê duração); **reprodução não exercitada** — o player recusa tocar em ambiente automatizado |
 | API da Meta | **nunca chamada de verdade** — todo o fluxo foi verificado com dado sintético |
 | Player da VTurb | **não confirmado** se expõe a posição do vídeo; sem isso, só play/pausa |
-| YouTube e Vimeo | adaptador escrito, **nunca exercitado** |
-| Safari e Firefox | não testados; `sendBeacon` e `pagehide` se comportam diferente no iOS |
 | Volume alto | maior teste foi ~3 mil sessões |
 
 ### 6. Depurar numa página real
