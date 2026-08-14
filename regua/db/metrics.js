@@ -192,3 +192,145 @@ export async function comparison(db, accountId, key, a, b, device) {
     caveat: 'Comparação sequencial: v1 num período, v2 no seguinte. Rode em períodos equivalentes — terça contra sábado mistura conteúdo com dia da semana.',
   };
 }
+
+/* ── evolução no tempo ────────────────────────────────────────────────
+   Calculado na hora, não materializado. Um rollup pré-calculado pode ficar
+   defasado sem ninguém perceber, e no volume de um beta a diferença de
+   desempenho é irrelevante. Quando passar a doer, vira tabela — não antes. */
+export async function evolucaoDiaria(db, accountId, key, device) {
+  const asset = (await db.query(
+    'SELECT id FROM assets WHERE account_id = $1 AND key = $2', [accountId, key]
+  )).rows[0];
+  if (!asset) return null;
+
+  const { rows } = await db.query(`
+    WITH por_sessao AS (
+      SELECT s.id, s.version,
+             (s.started_at AT TIME ZONE 'America/Sao_Paulo')::date AS dia,
+             s.converted,
+             (SELECT MAX(b.ord) FROM step_stats b WHERE b.session_id = s.id) AS mais_fundo
+      FROM sessions s
+      WHERE s.asset_id = $1 AND s.device = $2
+    ),
+    etapas AS (
+      SELECT COUNT(DISTINCT b.step)::float AS n
+      FROM step_stats b JOIN sessions s ON s.id = b.session_id
+      WHERE s.asset_id = $1 AND s.device = $2
+    )
+    SELECT dia, version,
+           COUNT(*)::int AS sessoes,
+           COUNT(*) FILTER (WHERE converted)::int AS conversoes,
+           COALESCE(AVG(mais_fundo + 1) / NULLIF((SELECT n FROM etapas), 0) * 100, 0)::float AS profundidade
+    FROM por_sessao
+    GROUP BY dia, version
+    ORDER BY dia, version
+  `, [asset.id, device]);
+
+  return rows.map(r => ({
+    dia: r.dia instanceof Date ? r.dia.toISOString().slice(0, 10) : String(r.dia).slice(0, 10),
+    versao: r.version,
+    sessoes: r.sessoes,
+    conversoes: r.conversoes,
+    conversao: r.sessoes ? (r.conversoes / r.sessoes) * 100 : 0,
+    profundidade: r.profundidade,
+  }));
+}
+
+/* ── "você esqueceu de subir a versão" ────────────────────────────────
+   A versão é declarada por quem instala, e por isso pode ser esquecida —
+   e quando é, dois períodos diferentes ficam misturados numa versão só,
+   o que é PIOR que não ter versão nenhuma, porque parece limpo e não é.
+
+   Dois sinais denunciam página alterada:
+     • a lista de blocos mudou  — estrutura, certeza
+     • a altura mediana saltou  — conteúdo reescrito, alta confiança
+
+   O que NÃO pega: trocar uma headline por outra do mesmo tamanho. Por isso
+   isto é aviso, nunca fronteira automática: quem decide continua sendo você. */
+export async function mudancasSemVersao(db, accountId, key, device, { limiar = 20, minimo = 10 } = {}) {
+  const asset = (await db.query(
+    'SELECT id FROM assets WHERE account_id = $1 AND key = $2', [accountId, key]
+  )).rows[0];
+  if (!asset) return [];
+
+  const { rows } = await db.query(`
+    SELECT (s.started_at AT TIME ZONE 'America/Sao_Paulo')::date AS dia,
+           s.version, b.step, MIN(b.ord)::int AS ord,
+           COUNT(*)::int AS n,
+           PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY b.height)::float AS altura
+    FROM step_stats b JOIN sessions s ON s.id = b.session_id
+    WHERE s.asset_id = $1 AND s.device = $2 AND b.height > 0
+    GROUP BY dia, s.version, b.step
+    HAVING COUNT(*) >= $3
+    ORDER BY dia
+  `, [asset.id, device, minimo]);
+
+  const dia = r => (r.dia instanceof Date ? r.dia.toISOString().slice(0, 10) : String(r.dia).slice(0, 10));
+
+  /* Comparação POR BLOCO, entre pontos consecutivos daquele bloco — não
+     entre dias consecutivos da página.
+
+     Com volume modesto, poucos blocos alcançam a base mínima todo dia; um
+     bloco medido na segunda e na quinta tem os dois pontos válidos, e exigir
+     que fossem dias vizinhos jogaria a comparação fora. Foi o que fazia o
+     detector nunca disparar. */
+  const porBloco = new Map();
+  for (const r of rows) {
+    if (!porBloco.has(r.step)) porBloco.set(r.step, []);
+    porBloco.get(r.step).push({ dia: dia(r), versao: r.version, altura: r.altura, ord: r.ord });
+  }
+
+  const avisos = new Map();
+  for (const [step, serie] of porBloco) {
+    for (let i = 1; i < serie.length; i++) {
+      const antes = serie[i - 1], depois = serie[i];
+      // versão diferente é mudança declarada: não há o que avisar
+      if (antes.versao !== depois.versao) continue;
+      const variacao = ((depois.altura - antes.altura) / antes.altura) * 100;
+      if (Math.abs(variacao) < limiar) continue;
+
+      const chave = `${depois.dia}|${depois.versao}`;
+      if (!avisos.has(chave)) {
+        avisos.set(chave, {
+          dia: depois.dia, versao: depois.versao,
+          estrutura: false, sumiram: [], surgiram: [], alterados: [],
+        });
+      }
+      avisos.get(chave).alterados.push({ step, variacao, de: antes.dia });
+    }
+  }
+
+  /* Mudança de ESTRUTURA, num passe separado por dia.
+     Bloco ausente num dia não significa bloco removido: pode ser que ninguém
+     tenha chegado tão fundo. Só conta como sumiço se algum bloco POSTERIOR
+     ainda aparece — aí gente passou por ali e o bloco não estava. Sem essa
+     checagem, todo dia de tráfego fraco vira falso alarme. */
+  const porDia = new Map();
+  for (const r of rows) {
+    const k = `${dia(r)}|${r.version}`;
+    if (!porDia.has(k)) porDia.set(k, { dia: dia(r), versao: r.version, blocos: new Map() });
+    porDia.get(k).blocos.set(r.step, r.ord);
+  }
+  const dias = [...porDia.values()].sort((a, b) => a.dia.localeCompare(b.dia));
+  const fundo = m => Math.max(-1, ...m.values());
+
+  for (let i = 1; i < dias.length; i++) {
+    const antes = dias[i - 1], depois = dias[i];
+    if (antes.versao !== depois.versao) continue;
+
+    const sumiram = [...antes.blocos].filter(([k, o]) => !depois.blocos.has(k) && o < fundo(depois.blocos)).map(([k]) => k);
+    const surgiram = [...depois.blocos].filter(([k, o]) => !antes.blocos.has(k) && o < fundo(antes.blocos)).map(([k]) => k);
+    if (!sumiram.length && !surgiram.length) continue;
+
+    const chave = `${depois.dia}|${depois.versao}`;
+    const a = avisos.get(chave) ?? { dia: depois.dia, versao: depois.versao, estrutura: false, sumiram: [], surgiram: [], alterados: [] };
+    a.estrutura = true;
+    a.sumiram = sumiram;
+    a.surgiram = surgiram;
+    avisos.set(chave, a);
+  }
+
+  return [...avisos.values()]
+    .map(a => ({ ...a, alterados: a.alterados.sort((x, y) => Math.abs(y.variacao) - Math.abs(x.variacao)) }))
+    .sort((a, b) => b.dia.localeCompare(a.dia));
+}

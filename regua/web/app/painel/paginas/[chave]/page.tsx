@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { facetas, leitura, comparar } from '@/lib/dados';
+import { facetas, leitura, comparar, evolucao, mudancasEsquecidas } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { PillFiltro } from '@/components/ui/pill-filtro';
 import { VistaRetencao } from '@/components/painel/vista-retencao';
 import { VistaVersoes } from '@/components/painel/vista-versoes';
+import { LinhaEvolucao } from '@/components/graficos/linha-evolucao';
 
 type Props = {
   params: Promise<{ chave: string }>;
@@ -30,6 +31,11 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
   // `vs` é a versão contra a qual comparar. Só entra se existir e for outra.
   const contra = sp.vs && sp.vs !== versao && f.versions.includes(sp.vs) ? sp.vs : null;
   const comp = contra ? await comparar(conta.id, alvo, versao, contra, disp) : null;
+
+  // A linha do tempo mostra TODAS as versões juntas: é a evolução da página,
+  // não de um recorte. Por isso não filtra por versão.
+  const linha = (await evolucao(conta.id, alvo, disp)) ?? [];
+  const esquecidas = await mudancasEsquecidas(conta.id, alvo, disp);
 
   return (
     <div className="space-y-5">
@@ -59,6 +65,34 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
           )}
         </div>
       </header>
+
+      {esquecidas.length > 0 && (
+        <div className="rounded-xl border border-warn/25 bg-warn/[.06] px-4 py-3.5 text-[12.5px] leading-relaxed text-warn">
+          <strong className="font-semibold">A página parece ter mudado sem trocar a versão.</strong>{' '}
+          {esquecidas.slice(0, 2).map(m => (
+            <span key={m.dia}>
+              Em {m.dia.slice(8)}/{m.dia.slice(5, 7)},{' '}
+              {m.estrutura
+                ? `a lista de blocos mudou (${[...m.sumiram.map(s => `saiu ${s}`), ...m.surgiram.map(s => `entrou ${s}`)].join(', ')})`
+                : `a altura de ${m.alterados[0].step} variou ${Math.abs(m.alterados[0].variacao).toFixed(0)}% desde ${m.alterados[0].de.slice(8)}/${m.alterados[0].de.slice(5, 7)}`}
+              , e a versão continuou v{m.versao}.{' '}
+            </span>
+          ))}
+          Se você alterou a página, suba <span className="font-mono">data-version</span> — senão os
+          dois períodos ficam somados numa versão só, e a comparação passa a medir duas páginas
+          diferentes como se fossem uma.
+        </div>
+      )}
+
+      <section className="card p-5">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-[13px] uppercase tracking-wider text-muted">Evolução</h2>
+          <span className="text-[11px] text-faint">
+            atualiza em tempo real · a marca vertical é onde a versão trocou
+          </span>
+        </div>
+        <LinhaEvolucao pontos={linha} />
+      </section>
 
       {comp ? <VistaVersoes c={comp} /> : <VistaRetencao leitura={dados} />}
     </div>

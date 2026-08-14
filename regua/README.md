@@ -198,6 +198,17 @@ Quebrar qualquer uma invalida a leitura.
 1. **Uma alteração por versão.** Mudou qualquer coisa, incremente `data-version`.
    Alterou três blocos e a conversão subiu? Você não sabe qual funcionou — e
    provavelmente um deles piorou sem você perceber.
+
+   A versão aparece no painel **na hora**: no instante em que o primeiro
+   visitante carrega a página com `data-version="2"`, a pílula v2 surge. Sem
+   cadastro e sem espera.
+
+   Esquecer de subir a versão é pior que não versionar, porque os dois
+   períodos ficam somados num só e parecem limpos. Por isso o painel avisa
+   quando a página parece ter mudado sem a versão trocar — ele compara a
+   altura mediana de cada bloco entre um dia e o próximo em que aquele bloco
+   teve base suficiente. É **sinal, não garantia**: trocar uma headline por
+   outra do mesmo tamanho não muda altura nem estrutura e passa batido.
 2. **Mínimo de 300 sessões.** Abaixo disso os números são ruído e o painel avisa.
    Para detectar diferenças de 10 pontos percentuais, são necessárias ~400 por versão.
 3. **Olhe o bloco que você mexeu.** Com 11 blocos, é praticamente garantido que

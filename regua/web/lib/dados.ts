@@ -1,6 +1,6 @@
 import 'server-only';
 import { pool, listAssets, facets } from '@regua/db';
-import { compute, comparison, resumoAsset } from '@regua/db/metrics';
+import { compute, comparison, resumoAsset, evolucaoDiaria, mudancasSemVersao } from '@regua/db/metrics';
 import { metricasVideo } from '@regua/db/video';
 import { metricasQuiz, respostasPorLead } from '@regua/db/quiz';
 
@@ -155,3 +155,23 @@ export const leadsQuiz = (
   accountId: number, key: string, version: string, device: string,
   opcoes: { pagina?: number; porPagina?: number; busca?: string }
 ) => respostasPorLead(db, accountId, key, version, device, opcoes) as Promise<LeadsQuiz | null>;
+
+export type PontoEvolucao = {
+  dia: string; versao: string;
+  sessoes: number; conversoes: number; conversao: number; profundidade: number;
+};
+
+export type MudancaSemVersao = {
+  dia: string; versao: string; estrutura: boolean;
+  sumiram: string[]; surgiram: string[];
+  alterados: { step: string; variacao: number; de: string }[];
+};
+
+export const evolucao = (accountId: number, key: string, device: string) =>
+  (evolucaoDiaria as (db: unknown, a: number, k: string, d: string) => Promise<PontoEvolucao[] | null>)(
+    db, accountId, key, device);
+
+/** Avisa quando a página parece ter mudado sem a versão ter sido trocada. */
+export const mudancasEsquecidas = (accountId: number, key: string, device: string) =>
+  (mudancasSemVersao as (db: unknown, a: number, k: string, d: string) => Promise<MudancaSemVersao[]>)(
+    db, accountId, key, device);
