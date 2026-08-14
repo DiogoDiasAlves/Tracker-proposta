@@ -28,39 +28,61 @@ function adaptadorHtml5(el) {
   };
 }
 
-/* Player novo da VTurb: custom element no DOM da própria página, não iframe.
-   Confirmado que expõe player:ready / video:play / video:pause. O acesso à
-   POSIÇÃO não está documentado, então tentamos, em ordem, as formas usuais —
-   e se nenhuma responder, o vídeo é reportado como parcial: play e pausa
-   contam, curva de retenção não. Melhor um dado faltando e assumido do que
-   uma curva inventada. */
+/* Player novo da VTurb.
+
+   Custom element no DOM da própria página, não iframe — por isso é legível.
+   Sondado contra uma página real (vturb.com) e confirmado: o elemento expõe
+   `currentTime`, que ANDA durante a reprodução, mais `duration`, `paused` e
+   `volume`. Ou seja: curva de retenção completa, não só play e pausa.
+
+   A sondagem também derrubou quatro suposições que eu tinha feito por escrito
+   e que deixariam o coletor mudo sem nada quebrar:
+
+     • não existe <video> interno nem shadowRoot — tudo vem do elemento
+     • `playing` não existe; o que existe é `paused`. Ler `el.playing` dava
+       undefined, `tocando()` retornava sempre false, e NADA acumulava
+     • `duration` é propriedade, não atributo — ler getAttribute dava zero
+     • mudo se lê por `volume === 0`, e o autoplay deles tem sinal próprio
+       (`inSmartAutoPlay`), que o atributo `autoplay` não captura
+
+   O caminho pelo <video> interno continua primeiro por segurança: se uma
+   versão futura do player passar a expor um, ele é mais confiável que a
+   propriedade pública. */
 function adaptadorVturb(el) {
   function interno() {
     try { return el.querySelector('video') || (el.shadowRoot && el.shadowRoot.querySelector('video')); }
     catch (e) { return null; }
-  }
-  function pos() {
-    var v = interno();
-    if (v && isFinite(v.currentTime)) return v.currentTime;
-    if (typeof el.currentTime === 'number') return el.currentTime;
-    if (typeof el.getCurrentTime === 'function') { try { return el.getCurrentTime(); } catch (e) {} }
-    return null;
   }
   return {
     tipo: 'vturb',
     duracao: function () {
       var v = interno();
       if (v && isFinite(v.duration)) return v.duration;
+      if (typeof el.duration === 'number' && isFinite(el.duration)) return el.duration;
       return Number(el.getAttribute('duration')) || 0;
     },
-    posicao: pos,
+    posicao: function () {
+      var v = interno();
+      if (v && isFinite(v.currentTime)) return v.currentTime;
+      if (typeof el.currentTime === 'number' && isFinite(el.currentTime)) return el.currentTime;
+      if (typeof el.getCurrentTime === 'function') { try { return el.getCurrentTime(); } catch (e) {} }
+      return null;
+    },
     tocando: function () {
       var v = interno();
       if (v) return !v.paused && !v.ended;
+      if (typeof el.paused === 'boolean') return !el.paused;
       return !!el.playing;
     },
-    mudo: function () { var v = interno(); return v ? !!v.muted : false; },
-    autoplay: function () { return el.hasAttribute('autoplay'); },
+    mudo: function () {
+      var v = interno();
+      if (v) return !!v.muted;
+      if (typeof el.volume === 'number') return el.volume === 0;
+      return false;
+    },
+    autoplay: function () {
+      return !!el.inSmartAutoPlay || el.hasAttribute('autoplay');
+    },
   };
 }
 
@@ -206,6 +228,12 @@ function nomeDe(el, i) {
   if (yt) return 'yt-' + yt[1];
   var vm = src.match(/player\.vimeo\.com\/video\/(\d+)/);
   if (vm) return 'vimeo-' + vm[1];
+
+  /* Player próprio não tem src: o identificador útil é o id do elemento.
+     A VTurb usa `vid_<id do player>`, que é estável entre sessões — sem
+     isso o vídeo vira "video-1" e some no meio de vários. */
+  var elId = (el.getAttribute && el.getAttribute('id')) || el.id || '';
+  if (/^[a-z0-9][a-z0-9_-]{3,63}$/i.test(elId)) return elId.slice(0, 64);
 
   var base = src.split('?')[0].split('/').pop() || '';
   base = base.replace(/\.[a-z0-9]+$/i, '').replace(/[^a-z0-9_-]/gi, '-').slice(0, 40);

@@ -19,7 +19,8 @@
     "migrar": "node tools/migrar-sqlite.js",
     "espalhar": "node tools/espalhar-no-tempo.js",
     "testar:motores": "node tools/testar-navegadores.js",
-    "testar:players": "node tools/testar-players.js"
+    "testar:players": "node tools/testar-players.js",
+    "sondar": "node tools/sondar-player.js"
   },
   "dependencies": {
     "pg": "^8.23.0"

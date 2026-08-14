@@ -135,20 +135,50 @@ async function main() {
      dbg.vsl ? dbg.vsl.map(v => `${v.video} (${v.tipo})`).join(', ') : 'nenhum');
 
   console.log('\nassistindo e rolando como um visitante');
-  await cdp.eval(`(() => { const v = document.querySelector('video'); if (v) { v.muted = true; v.play(); } })()`);
+
+  /* Dá play no que existir. A primeira versão só sabia mexer em <video>
+     nativo, e reprovava o coletor em toda página que usa player próprio —
+     culpando o código pelo que era limitação do teste. */
+  const tocou = await cdp.eval(`(() => {
+    const v = document.querySelector('video');
+    if (v) { v.muted = true; v.play().catch(()=>{}); return 'html5'; }
+    const s = document.querySelector('vturb-smartplayer');
+    if (s) {
+      try { s.volume = 0; } catch (e) {}
+      try { if (s.play) s.play(); } catch (e) {}
+      try { s.click(); } catch (e) {}
+      return 'vturb';
+    }
+    const y = document.querySelector('iframe[src*="youtube"]');
+    if (y) {
+      try {
+        y.contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
+        y.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+      } catch (e) {}
+      return 'youtube';
+    }
+    return 'nenhum';
+  })()`);
+  console.log('  player acionado:', tocou);
   const altura = await cdp.eval('document.body.scrollHeight');
   for (const f of [0, 0.06, 0.12, 0.2]) {
     await cdp.eval(`window.scrollTo(0, ${Math.round(altura * f)})`);
     await sleep(3000);
   }
 
-  const meio = await cdp.eval(`(() => { const v = document.querySelector('video'); return v ? v.currentTime : null; })()`);
-  ok('o vídeo realmente avançou', meio > 2, `${meio?.toFixed(1)}s`);
+  // pergunta ao COLETOR onde o vídeo está, em vez de supor o tipo de player
+  const posicao = await cdp.eval(
+    `(() => { const v = (window.regua.debug().vsl || [])[0]; return v ? Number(v.ate_s) : null; })()`);
+  ok('o vídeo realmente avançou', posicao > 1, `${posicao}s medidos pelo coletor`);
 
-  // volta o vídeo para o início: é isto que vira "trecho revisto"
   console.log('\nvoltando o vídeo para testar "rever"');
-  await cdp.eval(`(() => { const v = document.querySelector('video'); if (v) v.currentTime = 1; })()`);
-  await sleep(4000);
+  await cdp.eval(`(() => {
+    const v = document.querySelector('video');
+    if (v) { v.currentTime = 1; return; }
+    const s = document.querySelector('vturb-smartplayer');
+    if (s) { try { s.currentTime = 1; } catch (e) {} }
+  })()`);
+  await sleep(5000);
 
   const estado = JSON.parse(await cdp.eval('JSON.stringify(window.regua.debug().vsl)'));
   ok('acumulou segundos assistidos', estado[0]?.assistido_s > 0,
@@ -172,6 +202,7 @@ async function main() {
        FROM vsl_playback WHERE session_id = $1`, [s.id])).rows[0];
     ok('reprodução gravada', !!v, v ? `${v.video} · ${v.tipo} · ${v.duracao}s` : 'nada');
     if (v) {
+      ok('duração do vídeo chegou', v.duracao > 0, `${v.duracao}s`);
       const assistido = v.faixas.reduce((a, [x, y]) => a + (y - x), 0);
       const revisto = v.revistas.reduce((a, [x, y]) => a + (y - x), 0);
       ok('faixas assistidas com conteúdo', assistido > 0,
