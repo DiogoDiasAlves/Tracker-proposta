@@ -408,3 +408,26 @@ console:
 regua.debug()      // o que cada coletor está contando agora
 regua.session()    // o id desta sessão, para achar a linha no banco
 ```
+
+### Quem configura o quê
+
+Confusão comum, e vale deixar explícito: são **duas** credenciais diferentes, e
+só uma é sua.
+
+| | De quem | Onde | Quantas |
+|---|---|---|---|
+| `META_APP_ID` / `META_APP_SECRET` | do operador da Régua | `.env` do servidor | **uma, para sempre** |
+| Token da conta de anúncios | de cada cliente | banco, cifrado por conta | uma por cliente |
+
+O App ID é a identidade da **Régua como aplicativo** perante a Meta — o mesmo
+papel do `client_id` num "Entrar com Google". O cliente nunca vê nem informa
+isso: ele clica em *Conectar conta da Meta*, autoriza na tela do Facebook,
+escolhe a conta de anúncios, e pronto.
+
+Se cada cliente precisasse do próprio App ID, teria que criar um app no Meta
+for Developers e passar por App Review sozinho — que é justamente o que a
+integração existe para evitar.
+
+**Consequência prática:** enquanto o App Review de `ads_read` não sair, só
+consegue conectar quem tiver papel no app (administrador, desenvolvedor ou
+testador). Para o beta isso basta; para abrir a clientes, o review é obrigatório.

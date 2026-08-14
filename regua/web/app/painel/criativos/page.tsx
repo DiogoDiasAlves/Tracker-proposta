@@ -59,7 +59,7 @@ export default async function Criativos({ searchParams }: Props) {
       {sp.erro && (
         <div className="rounded-xl border border-danger/25 bg-danger/[.07] px-4 py-3 text-[12.5px] text-danger">
           {sp.erro === 'sem-credenciais'
-            ? 'Faltam META_APP_ID e META_APP_SECRET no ambiente.'
+            ? 'A conexão com a Meta ainda não está disponível nesta instalação.'
             : sp.erro === 'estado-invalido'
               ? 'A volta da Meta não conferiu com o pedido que saiu daqui. Tente conectar de novo.'
               : sp.erro === 'conta-invalida' ? 'Identificador de conta de anúncios inválido.'
@@ -218,19 +218,38 @@ export default async function Criativos({ searchParams }: Props) {
 function Conexao({ conexao, configurado }: {
   conexao: Awaited<ReturnType<typeof metaConexao>>; configurado: boolean;
 }) {
+  /* Quando o app da Meta não está configurado, o problema é do OPERADOR da
+     Régua, não de quem está olhando a tela. Cliente lendo "falta META_APP_ID
+     no ambiente" só conclui que o produto está quebrado, e não tem nada que
+     possa fazer a respeito.
+
+     A frase de cima é para o cliente; a de baixo é a dica técnica, discreta,
+     para quem opera a instalação. */
   if (!configurado) {
     return (
-      <span className="chip !border-warn/30 !bg-warn/10 !text-warn">
-        falta META_APP_ID no ambiente
-      </span>
+      <div className="text-right">
+        <span className="chip !border-warn/30 !bg-warn/10 !text-warn">
+          conexão com a Meta indisponível
+        </span>
+        <p className="mt-1.5 text-[10.5px] text-faint">
+          o aplicativo da Meta ainda não foi configurado nesta instalação
+        </p>
+      </div>
     );
   }
   if (!conexao) {
     return (
-      <Link href="/api/meta/conectar" className="btn-accent flex items-center gap-2 px-4 py-2.5 text-[13px]">
-        <IconMegaphone className="h-4 w-4" />
-        Conectar conta da Meta
-      </Link>
+      <div className="text-right">
+        <Link href="/api/meta/conectar"
+              className="btn-accent inline-flex items-center gap-2 px-4 py-2.5 text-[13px]">
+          <IconMegaphone className="h-4 w-4" />
+          Conectar conta da Meta
+        </Link>
+        <p className="mt-1.5 text-[10.5px] leading-snug text-faint">
+          Você autoriza no Facebook e escolhe a conta.<br />
+          Pedimos só leitura de anúncios.
+        </p>
+      </div>
     );
   }
   return (
