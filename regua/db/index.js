@@ -117,3 +117,30 @@ export async function facets(db, accountId, key) {
     counts: rows,
   };
 }
+
+/* Chaves quase iguais: quase sempre erro de digitação.
+
+   `data-page="oferta-relogio-uk"` numa página e `oferta-relogio-UK` noutra
+   criam DOIS assets, e a coleta se divide sem nada quebrar. É o pior tipo de
+   defeito de instrumentação: silencioso, e só descoberto quando alguém estranha
+   o volume pela metade.
+
+   Normalizando para minúscula e sem separadores, o par colide e o painel avisa. */
+export async function chavesParecidas(db, accountId) {
+  const { rows } = await db.query(
+    `SELECT a.key, COUNT(s.id)::int AS sessions
+     FROM assets a LEFT JOIN sessions s ON s.asset_id = a.id
+     WHERE a.account_id = $1 GROUP BY a.key`, [accountId]
+  );
+
+  const grupos = new Map();
+  for (const r of rows) {
+    const norm = r.key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!grupos.has(norm)) grupos.set(norm, []);
+    grupos.get(norm).push(r);
+  }
+
+  return [...grupos.values()]
+    .filter(g => g.length > 1)
+    .map(g => g.sort((a, b) => b.sessions - a.sessions));
+}

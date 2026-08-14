@@ -73,6 +73,27 @@ var sentInit = false;
 
 function register(c) { collectors.push(c); }
 
+/* Isolamento entre coletores.
+
+   O tracker roda na página DE OUTRA PESSOA, com DOM que a gente não escreveu
+   e que muda sem avisar. Um erro num coletor não pode derrubar os outros —
+   e, pior, sem isto o laço de amostragem abortava a cada 200ms em silêncio,
+   parando a coleta inteira sem ninguém perceber.
+
+   Falhar por padrão é a decisão certa aqui: um bloco não medido é um dado a
+   menos; uma exceção não contida é a página do cliente com erro no console. */
+function seguro(fn, rotulo) {
+  try { return fn(); }
+  catch (e) {
+    if (!seguro.avisou[rotulo]) {
+      seguro.avisou[rotulo] = 1;   // uma vez por rótulo, não a cada tick
+      try { console.warn('[regua] falha em ' + rotulo + ':', e && e.message); } catch (x) {}
+    }
+    return null;
+  }
+}
+seguro.avisou = {};
+
 function loadState() {
   try { return JSON.parse(sessionStorage.getItem(STATE_KEY) || 'null'); }
   catch (e) { return null; }
@@ -82,7 +103,9 @@ function saveState() {
   try {
     var col = {};
     for (var i = 0; i < active.length; i++) {
-      if (active[i].state) col[active[i].name] = active[i].state();
+      (function (c) {
+        if (c.state) col[c.name] = seguro(function () { return c.state(); }, c.name + '.state');
+      })(active[i]);
     }
     sessionStorage.setItem(STATE_KEY, JSON.stringify({
       q: seq, c: ctaClicks, cv: converted, x: exitViaCta ? 1 : 0, col: col
@@ -99,7 +122,9 @@ function restoreState() {
   exitViaCta = !!s.x;
   for (var i = 0; i < active.length; i++) {
     var saved = s.col && s.col[active[i].name];
-    if (saved && active[i].restore) active[i].restore(saved);
+    if (saved && active[i].restore) {
+      (function (c, g) { seguro(function () { c.restore(g); }, c.name + '.restore'); })(active[i], saved);
+    }
   }
 }
 
@@ -119,7 +144,9 @@ function visibleEnough(el) {
 function tick() {
   if (document.visibilityState !== 'visible') return; // só em primeiro plano
   for (var i = 0; i < active.length; i++) {
-    if (active[i].tick) active[i].tick(TICK);
+    (function (c) {
+      if (c.tick) seguro(function () { c.tick(TICK); }, c.name + '.tick');
+    })(active[i]);
   }
 }
 
@@ -129,14 +156,16 @@ function tick() {
 function ownerStep(node) {
   for (var i = 0; i < active.length; i++) {
     if (!active[i].ownerStep) continue;
-    var s = active[i].ownerStep(node);
+    var s = (function (c) {
+      return seguro(function () { return c.ownerStep(node); }, c.name + '.ownerStep');
+    })(active[i]);
     if (s) return s;
   }
   return null;
 }
 
 function onClick(ev) {
-  var el = ev.target.closest && ev.target.closest('[data-cta]');
+  var el = ev.target && ev.target.closest && ev.target.closest('[data-cta]');
   if (!el) return;
   ctaClicks.push({ k: el.getAttribute('data-cta'), b: ownerStep(el), t: Date.now() });
   exitViaCta = true;
@@ -177,7 +206,10 @@ function payload(final) {
 
   for (var i = 0; i < active.length; i++) {
     if (!active[i].payload) continue;
-    var frag = active[i].payload(final);
+    var frag = (function (c) {
+      return seguro(function () { return c.payload(final); }, c.name + '.payload');
+    })(active[i]);
+    if (!frag) continue;
     for (var k in frag) if (frag.hasOwnProperty(k)) out[k] = frag[k];
   }
 
@@ -197,7 +229,10 @@ function payload(final) {
   if (final) {
     var deepest = null;
     for (var j = 0; j < active.length && !deepest; j++) {
-      if (active[j].primary && active[j].exitStep) deepest = active[j].exitStep();
+      if (!active[j].primary || !active[j].exitStep) continue;
+      deepest = (function (c) {
+        return seguro(function () { return c.exitStep(); }, c.name + '.exitStep');
+      })(active[j]);
     }
     out.x = { b: deepest, cta: exitViaCta ? 1 : 0 };
   }
@@ -223,12 +258,18 @@ function flush(final, beacon) {
 
 /* ── ciclo de vida ──────────────────────────────────────────────────── */
 function rescan() {
-  for (var i = 0; i < active.length; i++) if (active[i].scan) active[i].scan();
+  for (var i = 0; i < active.length; i++) {
+    (function (c) {
+      if (c.scan) seguro(function () { c.scan(); }, c.name + '.scan');
+    })(active[i]);
+  }
 }
 
 function start() {
   for (var i = 0; i < collectors.length; i++) {
-    if (collectors[i].detect()) active.push(collectors[i]);
+    (function (c) {
+      if (seguro(function () { return c.detect(); }, c.name + '.detect')) active.push(c);
+    })(collectors[i]);
   }
   if (!active.length) {
     return console.warn('[regua] nada para medir em ' + PAGE +

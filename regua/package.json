@@ -26,5 +26,8 @@
     "db",
     "metrics",
     "web"
-  ]
+  ],
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
 }

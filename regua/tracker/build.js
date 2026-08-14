@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { transformSync } from 'esbuild';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -48,8 +49,26 @@ ${corpo}
 `;
 
 mkdirSync(join(root, 'dist'), { recursive: true });
-const destino = join(root, 'dist', 'r.js');
-writeFileSync(destino, saida);
 
-const kb = (Buffer.byteLength(saida) / 1024).toFixed(1);
-console.log(`dist/r.js  ${kb} KB  (${PARTES.join(' + ')})`);
+/* Duas saídas.
+
+   r.js é o que vai para a página do cliente: minificado, porque 33 KB de
+   comentário numa página de vendas é peso que o visitante paga em 3G sem
+   receber nada em troca.
+
+   r.dev.js mantém o código legível, para depurar numa página real sem ter de
+   reconstruir. O comportamento é o mesmo — muda só o que dá para ler.
+
+   `target: es2017` de propósito: o tracker roda em navegador de gente que a
+   gente não escolhe, e sintaxe nova demais quebraria em silêncio justamente
+   em quem mais precisa ser medido. */
+writeFileSync(join(root, 'dist', 'r.dev.js'), saida);
+
+const min = transformSync(saida, {
+  minify: true, target: 'es2017', legalComments: 'inline',
+}).code;
+writeFileSync(join(root, 'dist', 'r.js'), min);
+
+const kb = n => (n / 1024).toFixed(1) + ' KB';
+console.log(`dist/r.js      ${kb(Buffer.byteLength(min))}  (minificado)`);
+console.log(`dist/r.dev.js  ${kb(Buffer.byteLength(saida))}  (legível)`);

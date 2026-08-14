@@ -1,5 +1,5 @@
 import 'server-only';
-import { pool, listAssets, facets } from '@regua/db';
+import { pool, listAssets, facets, chavesParecidas } from '@regua/db';
 import { compute, comparison, resumoAsset, evolucaoDiaria, mudancasSemVersao } from '@regua/db/metrics';
 import { metricasVideo } from '@regua/db/video';
 import { metricasQuiz, respostasPorLead } from '@regua/db/quiz';
@@ -175,3 +175,7 @@ export const evolucao = (accountId: number, key: string, device: string) =>
 export const mudancasEsquecidas = (accountId: number, key: string, device: string) =>
   (mudancasSemVersao as (db: unknown, a: number, k: string, d: string) => Promise<MudancaSemVersao[]>)(
     db, accountId, key, device);
+
+export const chavesDuplicadas = (accountId: number) =>
+  (chavesParecidas as (db: unknown, a: number) => Promise<{ key: string; sessions: number }[][]>)(
+    db, accountId);

@@ -4,8 +4,12 @@ import { CORS } from '@/lib/coleta';
 
 /* O tracker. Vive fora do app porque é vanilla e sem dependência — quem roda
    na página do cliente não pode carregar framework. */
-export async function GET() {
-  const caminho = join(process.cwd(), '..', 'dist', 'r.js');
+export async function GET(req: Request) {
+  /* ?dev=1 devolve a versão legível. Depurar coleta numa página real com o
+     código minificado é praticamente impossível, e reconstruir só para isso
+     não é opção quando a página é do cliente. */
+  const dev = new URL(req.url).searchParams.has('dev');
+  const caminho = join(process.cwd(), '..', 'dist', dev ? 'r.dev.js' : 'r.js');
   try {
     const js = await readFile(caminho, 'utf8');
     return new Response(js, {

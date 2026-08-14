@@ -339,3 +339,71 @@ Nunca vão bater, e a tela mostra os dois lados de propósito. A Meta conta
 **clique**, a Régua conta **página carregada**, e bloqueador come parte. A
 coluna *Aproveitamento* é essa diferença: muito abaixo de 80% costuma ser
 página lenta — gente que clica e desiste antes de abrir.
+
+---
+
+## Antes de rodar com tráfego real
+
+Ordem importa: os três primeiros são bloqueio, o resto é o que evita descobrir
+problema tarde.
+
+### 1. Publicar em HTTPS
+
+Página de vendas é https. O navegador **bloqueia** requisição http vinda de
+página https, então a coleta precisa estar em domínio com TLS. Nos testes isso
+foi contornado com `--allow-running-insecure-content`, que não existe na vida
+real.
+
+Ideal: subdomínio próprio (`r.seudominio.com`) apontando para o app. Domínio
+próprio também sofre menos bloqueio de extensão que domínio de terceiro.
+
+### 2. Confirmar que a conversão volta
+
+**É o item que mais falha na prática.** A Régua não mede fora da página: ao
+clicar num CTA que é link, o script acrescenta `?rg_s=<sessão>` ao destino, e a
+página de obrigado devolve isso com `/c.gif?s=`.
+
+O elo frágil é o meio do caminho: **muitas plataformas de checkout descartam
+parâmetro que não conhecem** no redirecionamento. Se isso acontecer, a
+conversão nunca é atribuída, e o CPA real — que é o número que justifica o
+produto — fica vazio.
+
+Teste antes de confiar no número: clique num CTA, vá até a página de obrigado
+e confira se `rg_s` sobreviveu na URL. Se não sobreviveu, o caminho é usar o
+parâmetro que aquela plataforma preserva (a maioria tem um campo de metadado
+ou `utm_content` livre) e ler dele.
+
+### 3. Colar o parâmetro da Meta
+
+`utm_content={{ad.id}}` nos Parâmetros de URL, nível de anúncio. Sem ele a tela
+de Criativos não tem em que se apoiar.
+
+### 4. Backup do banco
+
+Hoje o Postgres roda em Docker com volume nomeado. Em produção, use um
+gerenciado com backup automático, ou agende `pg_dump`. Sem isso, um `docker
+volume rm` distraído apaga todo o histórico — e histórico de retenção não se
+recupera.
+
+### 5. O que ainda não foi testado contra o mundo real
+
+Honestidade sobre os limites do que foi verificado:
+
+| Item | Estado |
+|---|---|
+| Página de vendas, vídeo e quiz | testados em Chrome real, incluindo página pública na internet |
+| API da Meta | **nunca chamada de verdade** — todo o fluxo foi verificado com dado sintético |
+| Player da VTurb | **não confirmado** se expõe a posição do vídeo; sem isso, só play/pausa |
+| YouTube e Vimeo | adaptador escrito, **nunca exercitado** |
+| Safari e Firefox | não testados; `sendBeacon` e `pagehide` se comportam diferente no iOS |
+| Volume alto | maior teste foi ~3 mil sessões |
+
+### 6. Depurar numa página real
+
+`/r.js?dev=1` devolve a versão legível do tracker, com os comentários. E no
+console:
+
+```js
+regua.debug()      // o que cada coletor está contando agora
+regua.session()    // o id desta sessão, para achar a linha no banco
+```

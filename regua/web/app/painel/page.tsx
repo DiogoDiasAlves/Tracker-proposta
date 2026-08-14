@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ativos, facetas, leitura, siteKey } from '@/lib/dados';
+import { ativos, facetas, leitura, siteKey, chavesDuplicadas } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { PillFiltro } from '@/components/ui/pill-filtro';
 import { SeletorAtivo } from '@/components/ui/seletor-ativo';
@@ -56,6 +56,7 @@ export default async function Painel({ searchParams }: { searchParams: Busca }) 
   }
 
   const pior = dados.steps.find(s => s.step === dados.worst);
+  const duplicadas = await chavesDuplicadas(conta.id);
 
   return (
     <div className="space-y-5">
@@ -87,6 +88,21 @@ export default async function Painel({ searchParams }: { searchParams: Busca }) 
                       opcoes={f.devices.map(d => ({ valor: d, texto: d }))} />
         </div>
       </header>
+
+      {duplicadas.length > 0 && (
+        <div className="rounded-xl border border-warn/25 bg-warn/[.06] px-4 py-3.5 text-[12.5px] leading-relaxed text-warn">
+          <strong className="font-semibold">Duas chaves quase iguais estão coletando separado.</strong>{' '}
+          {duplicadas.map(g => (
+            <span key={g[0].key}>
+              {g.map(x => `${x.key} (${x.sessions})`).join(' e ')}
+              {' '}parecem a mesma página escrita de dois jeitos.{' '}
+            </span>
+          ))}
+          <span className="text-ink">data-page diferencia maiúscula de minúscula</span> — confira o
+          script das duas. Enquanto forem chaves diferentes, cada uma tem metade do volume, e
+          nenhum aviso de amostra vai disparar porque cada metade parece uma página inteira.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Stat rotulo="Sessões" valor={dados.sessions.toLocaleString('pt-BR')}
