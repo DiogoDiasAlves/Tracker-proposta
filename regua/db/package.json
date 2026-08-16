@@ -11,6 +11,7 @@
     "./video": "./video.js",
     "./quiz": "./quiz.js",
     "./auth": "./auth.js",
+    "./admin": "./admin.js",
     "./meta": "./meta.js",
     "./meta-api": "./meta-api.js"
   },

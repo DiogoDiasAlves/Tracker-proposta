@@ -43,7 +43,7 @@ export async function criarSessao(db, userId) {
 export async function usuarioDaSessao(db, token) {
   if (!token) return null;
   const { rows } = await db.query(`
-    SELECT u.id, u.email, u.name
+    SELECT u.id, u.email, u.name, u.is_admin
     FROM user_sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = $1 AND s.expira_em > now()
   `, [hashToken(token)]);

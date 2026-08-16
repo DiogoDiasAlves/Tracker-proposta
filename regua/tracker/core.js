@@ -44,15 +44,24 @@ var STATE_KEY = '_rg_st';
 /* ── sessão ───────────────────────────────────────────────────────────
    sessionStorage é exatamente a semântica prometida: sobrevive ao reload
    (não cria sessão nova) e é isolado por aba (duas abas = duas sessões).  */
+/* /c.gif?s=<sid> (página de obrigado sem JS) marca a sessão como convertida
+   sem exigir a site key — só o próprio sid. Math.random() dá poucas dezenas
+   de bits; quem adivinhasse um sid de outra conta inflava a conversão dela.
+   randomUUID() (122 bits) torna adivinhar inviável; cai pro esquema antigo só
+   em navegador tão velho que nem tem crypto.randomUUID. */
+var sidNovo = function () {
+  return (crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+};
 var sid;
 try {
   sid = sessionStorage.getItem('_rg');
   if (!sid) {
-    sid = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    sid = sidNovo();
     sessionStorage.setItem('_rg', sid);
   }
 } catch (e) {
-  sid = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  sid = sidNovo();
 }
 
 var isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
