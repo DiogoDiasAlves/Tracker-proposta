@@ -20,8 +20,18 @@ export const DATABASE_URL = process.env.DATABASE_URL ||
 pg.types.setTypeParser(20, v => Number(v));   // int8
 pg.types.setTypeParser(1700, v => Number(v)); // numeric
 
+// Banco local (Docker) não fala SSL; qualquer banco remoto (Render, Neon,
+// a VPS que vier depois) exige. `rejectUnauthorized: false` porque o
+// certificado desses provedores geralmente não encadeia com a lista de CAs
+// padrão do Node — é a configuração que o próprio Render recomenda.
+const LOCAL = /localhost|127\.0\.0\.1/.test(DATABASE_URL);
+
 export function pool() {
-  return new pg.Pool({ connectionString: DATABASE_URL, max: 10 });
+  return new pg.Pool({
+    connectionString: DATABASE_URL,
+    max: 10,
+    ssl: LOCAL ? undefined : { rejectUnauthorized: false },
+  });
 }
 
 export async function migrate(db) {
