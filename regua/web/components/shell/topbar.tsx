@@ -1,10 +1,10 @@
-import { IconSearch, IconGear, IconChevron, IconPlug } from '../icons';
+import { IconSearch, IconGear, IconChevron, IconPlug, IconUserCheck } from '../icons';
 import Link from 'next/link';
 import { AvisosAmostra, type ItemAviso } from './avisos-amostra';
 
 export function Topbar({
-  conta, usuario, avisos = [],
-}: { conta: string; usuario?: string; avisos?: ItemAviso[] }) {
+  conta, usuario, avisos = [], isAdmin = false,
+}: { conta: string; usuario?: string; avisos?: ItemAviso[]; isAdmin?: boolean }) {
   const iniciais = (usuario || conta).slice(0, 2).toUpperCase();
 
   return (
@@ -33,6 +33,17 @@ export function Topbar({
       </Link>
 
       <div className="ml-auto flex items-center gap-2.5">
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="btn-ghost flex items-center gap-2 px-3.5 py-2.5 text-[13px] text-muted"
+            title="Painel de administração"
+          >
+            <IconUserCheck className="h-[17px] w-[17px]" />
+            Admin
+          </Link>
+        )}
+
         <AvisosAmostra itens={avisos} />
 
         <div className="btn-ghost flex items-center gap-2 px-3 py-2.5">

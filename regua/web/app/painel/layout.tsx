@@ -14,7 +14,12 @@ export default async function PainelLayout({ children }: { children: React.React
     <div className="flex h-dvh overflow-hidden">
       <Sidebar assets={lista} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar conta={conta.slug} usuario={usuario.name ?? usuario.email} avisos={baixaAmostra} />
+        <Topbar
+          conta={conta.slug}
+          usuario={usuario.name ?? usuario.email}
+          avisos={baixaAmostra}
+          isAdmin={usuario.is_admin}
+        />
         <main className="relative z-10 flex-1 overflow-y-auto px-6 py-6">{children}</main>
       </div>
     </div>
