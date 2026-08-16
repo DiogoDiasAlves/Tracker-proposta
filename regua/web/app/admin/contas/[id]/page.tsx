@@ -58,7 +58,8 @@ export default async function ContaDetalhe({ params }: { params: Promise<{ id: s
           Páginas, VSLs e quiz em coleta ({c.ativos.length})
         </h2>
         <div className="card overflow-hidden p-0">
-          <table className="w-full text-[13px]">
+         <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] text-[13px]">
             <thead>
               <tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-faint">
                 <th className="px-4 py-3 font-medium">Chave</th>
@@ -92,6 +93,7 @@ export default async function ContaDetalhe({ params }: { params: Promise<{ id: s
               )}
             </tbody>
           </table>
+         </div>
         </div>
       </div>
     </div>

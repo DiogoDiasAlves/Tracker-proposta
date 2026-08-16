@@ -13,6 +13,12 @@ function Svg({ children, className }: P & { children: React.ReactNode }) {
   );
 }
 
+export const IconMenu = (p: P) => (
+  <Svg {...p}><path d="M3 6h18" /><path d="M3 12h18" /><path d="M3 18h18" /></Svg>
+);
+export const IconClose = (p: P) => (
+  <Svg {...p}><path d="m6 6 12 12" /><path d="m18 6-12 12" /></Svg>
+);
 export const IconPanel = (p: P) => (
   <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M9 3v18" /></Svg>
 );

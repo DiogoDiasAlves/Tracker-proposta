@@ -1,5 +1,4 @@
-import { Sidebar } from '@/components/shell/sidebar';
-import { Topbar } from '@/components/shell/topbar';
+import { PainelShell } from '@/components/shell/painel-shell';
 import { ativos } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 
@@ -11,17 +10,14 @@ export default async function PainelLayout({ children }: { children: React.React
     .map(a => ({ key: a.key, kind: a.kind, sessions: a.sessions }));
 
   return (
-    <div className="flex h-dvh overflow-hidden">
-      <Sidebar assets={lista} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar
-          conta={conta.slug}
-          usuario={usuario.name ?? usuario.email}
-          avisos={baixaAmostra}
-          isAdmin={usuario.is_admin}
-        />
-        <main className="relative z-10 flex-1 overflow-y-auto px-6 py-6">{children}</main>
-      </div>
-    </div>
+    <PainelShell
+      assets={lista}
+      conta={conta.slug}
+      usuario={usuario.name ?? usuario.email}
+      avisos={baixaAmostra}
+      isAdmin={usuario.is_admin}
+    >
+      {children}
+    </PainelShell>
   );
 }

@@ -109,7 +109,7 @@ export default async function Comparar({ searchParams }: Props) {
 
       {/* Cabeçalho A vs B — reconhecimento imediato de quem é quem antes de
           ler qualquer número. */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center md:gap-4">
         <div className="card flex items-center gap-3 p-4">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted">
             <IconA className="h-4 w-4" />
@@ -122,7 +122,7 @@ export default async function Comparar({ searchParams }: Props) {
             </p>
           </div>
         </div>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-faint">vs</span>
+        <span className="text-center text-[11px] font-semibold uppercase tracking-wider text-faint">vs</span>
         <div className="card flex items-center gap-3 p-4">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
             <IconB className="h-4 w-4" />

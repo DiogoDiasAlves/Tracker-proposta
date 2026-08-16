@@ -50,7 +50,8 @@ export default async function AdminPage() {
       </div>
 
       <div className="card overflow-hidden p-0">
-        <table className="w-full text-[13px]">
+       <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-[13px]">
           <thead>
             <tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-faint">
               <th className="px-4 py-3 font-medium">Conta</th>
@@ -106,6 +107,7 @@ export default async function AdminPage() {
             )}
           </tbody>
         </table>
+       </div>
       </div>
     </div>
   );
