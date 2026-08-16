@@ -240,7 +240,7 @@ function Conexao({ conexao, configurado }: {
   if (!conexao) {
     return (
       <div className="text-right">
-        <Link href="/api/meta/conectar"
+        <Link href="/api/meta/conectar" prefetch={false}
               className="btn-accent inline-flex items-center gap-2 px-4 py-2.5 text-[13px]">
           <IconMegaphone className="h-4 w-4" />
           Conectar conta da Meta

@@ -43,10 +43,12 @@ export function Topbar({
           />
         </div>
 
-        <Link href="/sair" className="btn-ghost flex items-center gap-2 px-3.5 py-2.5 text-[13px] text-muted">
-          Sair
-          <IconGear className="h-[17px] w-[17px]" />
-        </Link>
+        <form action="/sair" method="post">
+          <button type="submit" className="btn-ghost flex items-center gap-2 px-3.5 py-2.5 text-[13px] text-muted">
+            Sair
+            <IconGear className="h-[17px] w-[17px]" />
+          </button>
+        </form>
       </div>
     </header>
   );
