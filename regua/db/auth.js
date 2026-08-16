@@ -43,11 +43,15 @@ export async function criarSessao(db, userId) {
 export async function usuarioDaSessao(db, token) {
   if (!token) return null;
   const { rows } = await db.query(`
-    SELECT u.id, u.email, u.name, u.is_admin
+    SELECT u.id, u.email, u.name, u.is_admin, (u.tour_concluido_em IS NOT NULL) AS tour_concluido
     FROM user_sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = $1 AND s.expira_em > now()
   `, [hashToken(token)]);
   return rows[0] ?? null;
+}
+
+export async function concluirTour(db, userId) {
+  await db.query('UPDATE users SET tour_concluido_em = now() WHERE id = $1', [userId]);
 }
 
 export async function encerrarSessao(db, token) {
@@ -63,6 +67,72 @@ export async function contaDoUsuario(db, userId) {
     WHERE m.user_id = $1 ORDER BY a.id LIMIT 1
   `, [userId]);
   return rows[0] ?? null;
+}
+
+function slugify(s) {
+  const base = s.normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return base || 'conta';
+}
+
+/** Cadastro público (self-signup): conta + site key + usuário dono, numa
+ *  transação. Devolve null se o e-mail já está em uso — nunca sobrescreve
+ *  senha de quem já existe (isso seria dar a um estranho como resetar a
+ *  senha de outra pessoa só sabendo o e-mail dela). O slug nasce do nome da
+ *  conta, sem perguntar; se colidir, ganha um sufixo numérico. */
+export async function criarConta(db, { nomeConta, email, senha, nomeUsuario }) {
+  const emailNorm = email.toLowerCase().trim();
+  const c = await db.connect();
+  try {
+    await c.query('BEGIN');
+
+    const existe = await c.query('SELECT 1 FROM users WHERE email = $1', [emailNorm]);
+    if (existe.rowCount) { await c.query('ROLLBACK'); return null; }
+
+    const base = slugify(nomeConta);
+    let slug = base, n = 1;
+    // eslint-disable-next-line no-await-in-loop
+    while ((await c.query('SELECT 1 FROM accounts WHERE slug = $1', [slug])).rowCount) {
+      n += 1;
+      slug = `${base}-${n}`;
+    }
+
+    const accountId = (await c.query(
+      'INSERT INTO accounts (name, slug) VALUES ($1,$2) RETURNING id', [nomeConta, slug]
+    )).rows[0].id;
+
+    const siteKey = `rg_${randomBytes(9).toString('base64url')}`;
+    await c.query(
+      `INSERT INTO api_keys (account_id, site_key, name) VALUES ($1,$2,'chave inicial')`,
+      [accountId, siteKey]
+    );
+
+    const hash = await hashSenha(senha);
+    let userId;
+    try {
+      userId = (await c.query(
+        `INSERT INTO users (email, name, password_hash) VALUES ($1,$2,$3) RETURNING id`,
+        [emailNorm, nomeUsuario || null, hash]
+      )).rows[0].id;
+    } catch (e) {
+      // corrida: dois cadastros com o mesmo e-mail passaram do SELECT juntos
+      if (e.code === '23505') { await c.query('ROLLBACK'); return null; }
+      throw e;
+    }
+
+    await c.query(
+      `INSERT INTO memberships (account_id, user_id, role) VALUES ($1,$2,'owner')`,
+      [accountId, userId]
+    );
+
+    await c.query('COMMIT');
+    return { accountId, userId, slug, siteKey };
+  } catch (e) {
+    await c.query('ROLLBACK');
+    throw e;
+  } finally {
+    c.release();
+  }
 }
 
 export async function criarUsuario(db, { email, nome, senha, accountSlug }) {

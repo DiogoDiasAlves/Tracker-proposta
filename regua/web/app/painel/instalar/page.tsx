@@ -3,6 +3,7 @@ import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, Codigo } from '@/components/ui/estados';
 import { SeletorTipoInstalacao } from '@/components/ui/seletor-tipo-instalacao';
 import { StatusInstalacao } from '@/components/painel/status-instalacao';
+import { TourInstalacao } from '@/components/painel/tour-instalacao';
 
 export const metadata = { title: 'Instalação — Régua' };
 
@@ -32,7 +33,7 @@ function SePular({ children }: { children: React.ReactNode }) {
 
 export default async function Instalar({ searchParams }: { searchParams: Busca }) {
   const sp = await searchParams;
-  const { conta } = await exigirConta();
+  const { conta, usuario } = await exigirConta();
   const chave = (await siteKey(conta.id)) ?? 'SUA_CHAVE';
   const host = process.env.REGUA_HOST || 'http://localhost:3100';
   const tipo = sp.tipo === 'quiz' ? 'quiz' : 'pagina';
@@ -40,15 +41,19 @@ export default async function Instalar({ searchParams }: { searchParams: Busca }
 
   return (
     <div className="max-w-4xl space-y-5">
+      {!usuario.tour_concluido && <TourInstalacao />}
+
       <Cabecalho
         sobre="Uma vez por página"
         titulo="Instalação"
         descricao="Uma linha já começa a medir sessão e dispositivo. Pra funil por bloco, vídeo com métrica de oferta e conversão de verdade, tem mais alguns passos — cada um diz o que acontece se você pular."
       />
 
-      <StatusInstalacao desde={desde} />
+      <div id="tour-status">
+        <StatusInstalacao desde={desde} />
+      </div>
 
-      <section className="card p-6">
+      <section id="tour-chave" className="card p-6">
         <h2 className="text-[15px] font-semibold">Sua chave</h2>
         <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted">
           Chave pública. Pode ficar exposta no HTML — ela só diz de qual conta é o evento
@@ -59,12 +64,12 @@ export default async function Instalar({ searchParams }: { searchParams: Busca }
         </p>
       </section>
 
-      <div>
+      <div id="tour-tipo">
         <p className="mb-2 text-[11px] uppercase tracking-wider text-faint">O que você está instalando</p>
         <SeletorTipoInstalacao atual={tipo} />
       </div>
 
-      <section className="card !border-accent/20 p-6">
+      <section id="tour-ia" className="card !border-accent/20 p-6">
         <h2 className="text-[15px] font-semibold">Atalho: peça pra sua IA instalar</h2>
         <p className="mb-4 mt-1.5 text-[12.5px] leading-relaxed text-muted">
           Se você desenvolve a página com ajuda de IA (Cursor, Claude Code, ChatGPT, v0,

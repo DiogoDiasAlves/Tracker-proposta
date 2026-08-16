@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { usuarioAtual } from '@/lib/sessao';
 import { IconLogo } from '@/components/icons';
@@ -43,8 +44,8 @@ export default async function Entrar({ searchParams }: { searchParams: Promise<{
         </form>
 
         <p className="mt-4 text-center text-[11.5px] leading-relaxed text-faint">
-          Beta fechado. Para criar acesso:{' '}
-          <span className="font-mono text-muted">node tools/criar-usuario.js</span>
+          Ainda não tem conta?{' '}
+          <Link href="/criar-conta" className="text-accent hover:underline">Criar conta</Link>
         </p>
       </div>
     </main>
