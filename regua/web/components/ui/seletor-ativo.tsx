@@ -12,7 +12,12 @@ const ROTULO: Record<string, string> = { page: 'página', vsl: 'vídeo', quiz: '
    Pílulas não servem aqui: versão e dispositivo têm duas ou três opções, mas
    oferta cresce sem teto — com oito já não cabe na linha, e com trinta
    viraria uma parede. Lista suspensa com busca resolve nos dois extremos. */
-export function SeletorAtivo({ itens, atual }: { itens: ItemAtivo[]; atual: string }) {
+export function SeletorAtivo({
+  itens, atual, param = 'pagina', excluir, alinhar = 'right',
+}: {
+  itens: ItemAtivo[]; atual: string; param?: string; excluir?: string;
+  alinhar?: 'left' | 'right';
+}) {
   const router = useRouter();
   const path = usePathname();
   const sp = useSearchParams();
@@ -33,19 +38,22 @@ export function SeletorAtivo({ itens, atual }: { itens: ItemAtivo[]; atual: stri
 
   function escolher(key: string) {
     const q = new URLSearchParams(sp.toString());
-    q.set('pagina', key);
-    // versão e dispositivo pertencem à oferta anterior; carregá-los para a
-    // nova mostraria "sem dados" quando na verdade só o recorte não existe lá
-    q.delete('versao');
-    q.delete('disp');
+    q.set(param, key);
+    if (param === 'pagina') {
+      // versão e dispositivo pertencem à oferta anterior; carregá-los para a
+      // nova mostraria "sem dados" quando na verdade só o recorte não existe lá
+      q.delete('versao');
+      q.delete('disp');
+    }
     setAberto(false);
     setBusca('');
     router.replace(`${path}?${q.toString()}`, { scroll: false });
   }
 
+  const base = excluir ? itens.filter(i => i.key !== excluir) : itens;
   const visiveis = busca
-    ? itens.filter(i => i.key.toLowerCase().includes(busca.toLowerCase()))
-    : itens;
+    ? base.filter(i => i.key.toLowerCase().includes(busca.toLowerCase()))
+    : base;
   const sel = itens.find(i => i.key === atual);
 
   return (
@@ -68,8 +76,9 @@ export function SeletorAtivo({ itens, atual }: { itens: ItemAtivo[]; atual: stri
 
       {aberto && (
         <div role="listbox"
-             className="absolute right-0 z-50 mt-2 w-[320px] overflow-hidden rounded-xl border border-line bg-panel shadow-2xl shadow-black/60">
-          {itens.length > 6 && (
+             className={`absolute z-50 mt-2 w-[320px] overflow-hidden rounded-xl border border-line bg-panel shadow-2xl shadow-black/60 ${
+               alinhar === 'left' ? 'left-0' : 'right-0'}`}>
+          {base.length > 6 && (
             <div className="border-b border-line p-2">
               <input
                 autoFocus

@@ -125,8 +125,10 @@ export async function contasDeAnuncios(token) {
 const CAMPOS = [
   'ad_id', 'ad_name', 'adset_id', 'adset_name', 'campaign_id', 'campaign_name',
   'impressions', 'clicks', 'reach', 'spend', 'frequency', 'actions', 'date_start',
-  // vídeo DO ANÚNCIO, no feed — é o que dá hook rate e hold rate
-  'video_3_sec_watched_actions', 'video_thruplay_watched_actions',
+  // vídeo DO ANÚNCIO, no feed — é o que dá hook rate e hold rate.
+  // A Meta descontinuou o campo de 3s; o substituto oficial é o de 2s
+  // contínuos (video_continuous_2_sec_watched_actions).
+  'video_continuous_2_sec_watched_actions', 'video_thruplay_watched_actions',
   'video_p25_watched_actions', 'video_p50_watched_actions',
   'video_p75_watched_actions', 'video_p100_watched_actions',
   // venda e receita, para ROAS e ticket médio
@@ -179,7 +181,7 @@ export async function insights(token, adAccountId, { desde, ate }) {
         gasto: Number(d.spend || 0),
         frequencia: d.frequency ? Number(d.frequency) : null,
         acoes: d.actions ?? null,
-        views_3s: primeiroValor(d.video_3_sec_watched_actions),
+        views_3s: primeiroValor(d.video_continuous_2_sec_watched_actions),
         thruplays: primeiroValor(d.video_thruplay_watched_actions),
         v25: primeiroValor(d.video_p25_watched_actions),
         v50: primeiroValor(d.video_p50_watched_actions),

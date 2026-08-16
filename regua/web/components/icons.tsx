@@ -86,6 +86,12 @@ export const IconUserCheck = (p: P) => (
 export const IconClipboard = (p: P) => (
   <Svg {...p}><rect x="5" y="4" width="14" height="17" rx="2.5" /><path d="M9 4h6v3H9z" /><path d="m9 13 2 2 4-4" /></Svg>
 );
+export const IconCopy = (p: P) => (
+  <Svg {...p}><rect x="9" y="9" width="12" height="12" rx="2.5" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></Svg>
+);
+export const IconCheck = (p: P) => (
+  <Svg {...p}><path d="m5 12 5 5 9-10" /></Svg>
+);
 export const IconDots = (p: P) => (
   <Svg {...p}><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></Svg>
 );

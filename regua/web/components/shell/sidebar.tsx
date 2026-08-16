@@ -111,7 +111,7 @@ export function Sidebar({ assets }: { assets: AssetResumo[] }) {
             Instalar em uma página
           </div>
           <p className="relative z-10 mt-1 text-[11.5px] leading-relaxed text-muted">
-            Uma linha antes do <span className="font-mono">&lt;/body&gt;</span> e a coleta começa.
+            Um script, e o painel confirma sozinho quando a primeira sessão chegar.
           </p>
         </Link>
       </div>

@@ -1,7 +1,10 @@
-import { IconBell, IconSearch, IconGear, IconChevron, IconPlug } from '../icons';
+import { IconSearch, IconGear, IconChevron, IconPlug } from '../icons';
 import Link from 'next/link';
+import { AvisosAmostra, type ItemAviso } from './avisos-amostra';
 
-export function Topbar({ conta, usuario, avisos = 0 }: { conta: string; usuario?: string; avisos?: number }) {
+export function Topbar({
+  conta, usuario, avisos = [],
+}: { conta: string; usuario?: string; avisos?: ItemAviso[] }) {
   const iniciais = (usuario || conta).slice(0, 2).toUpperCase();
 
   return (
@@ -30,14 +33,7 @@ export function Topbar({ conta, usuario, avisos = 0 }: { conta: string; usuario?
       </Link>
 
       <div className="ml-auto flex items-center gap-2.5">
-        <button className="btn-ghost relative grid h-10 w-10 place-items-center" aria-label="Avisos">
-          <IconBell className="h-[18px] w-[18px] text-muted" />
-          {avisos > 0 && (
-            <span className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] font-bold tnum text-[#04241A]">
-              {avisos}
-            </span>
-          )}
-        </button>
+        <AvisosAmostra itens={avisos} />
 
         <div className="btn-ghost flex items-center gap-2 px-3 py-2.5">
           <IconSearch className="h-[17px] w-[17px] text-faint" />

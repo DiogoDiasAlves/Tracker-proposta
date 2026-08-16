@@ -82,7 +82,7 @@ export default async function Criativos({ searchParams }: Props) {
         </div>
       )}
 
-      {sp.escolher === '1' && conexao && <EscolherConta conexao={conexao} />}
+      {(sp.escolher === '1' || !conexao?.adAccountId) && conexao && <EscolherConta conexao={conexao} />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Cartao rotulo="Sessões com id de anúncio"
@@ -267,6 +267,11 @@ function Conexao({ conexao, configurado }: {
       <form action="/api/meta/sincronizar" method="post">
         <button className="btn-ghost px-3.5 py-2.5 text-[12.5px]">Sincronizar agora</button>
       </form>
+      {conexao.adAccountId && (
+        <Link href="?escolher=1" className="btn-ghost px-3.5 py-2.5 text-[12.5px] text-muted">
+          Trocar conta
+        </Link>
+      )}
       <form action="/api/meta/desconectar" method="post">
         <button className="btn-ghost px-3.5 py-2.5 text-[12.5px] text-muted">Desconectar</button>
       </form>

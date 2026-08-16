@@ -262,9 +262,10 @@ export async function criativos(db, accountId, { desde = null, ate = null } = {}
        Mede o criativo antes do clique, e é a outra metade do funil. Sem
        isto, CPA ruim é ambíguo: pode ser gancho que não segura ou página
        que não converte. Com isto, dá para separar. */
-    // parou de rolar: views de 3s ÷ impressões
+    // parou de rolar: views de 2s contínuos ÷ impressões
+    // (a Meta descontinuou o campo de 3s; 2s contínuos é o substituto oficial)
     hook: imp ? (v3 / imp) * 100 : null,
-    // aguentou o corpo: ThruPlays ÷ views de 3s
+    // aguentou o corpo: ThruPlays ÷ views de 2s
     hold: v3 ? (tp / v3) * 100 : null,
     // converteu entre quem assistiu o corpo do vídeo
     body_conv: tp ? (compras / tp) * 100 : null,

@@ -62,13 +62,25 @@ mkdirSync(join(root, 'dist'), { recursive: true });
    `target: es2017` de propósito: o tracker roda em navegador de gente que a
    gente não escolhe, e sintaxe nova demais quebraria em silêncio justamente
    em quem mais precisa ser medido. */
-writeFileSync(join(root, 'dist', 'r.dev.js'), saida);
-
 const min = transformSync(saida, {
   minify: true, target: 'es2017', legalComments: 'inline',
 }).code;
-writeFileSync(join(root, 'dist', 'r.js'), min);
+
+/* Duas cópias de cada arquivo, de propósito:
+
+   dist/ é o que os testes locais leem direto do disco (tools/testar-tracker.js).
+
+   web/public/ é o que o Next.js serve em produção. Um <script src="/r.js">
+   aponta pra arquivo estático — funciona igual em qualquer plataforma de
+   deploy, sem rota nem leitura de arquivo em tempo de requisição. A versão
+   antiga lia de "../dist" relativo ao processo, e isso quebraria assim que
+   o build rodasse isolado dentro de web/ (Vercel, Render, o que for). */
+for (const dir of [join(root, 'dist'), join(root, 'web', 'public')]) {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'r.dev.js'), saida);
+  writeFileSync(join(dir, 'r.js'), min);
+}
 
 const kb = n => (n / 1024).toFixed(1) + ' KB';
-console.log(`dist/r.js      ${kb(Buffer.byteLength(min))}  (minificado)`);
-console.log(`dist/r.dev.js  ${kb(Buffer.byteLength(saida))}  (legível)`);
+console.log(`r.js      ${kb(Buffer.byteLength(min))}  (minificado) → dist/ e web/public/`);
+console.log(`r.dev.js  ${kb(Buffer.byteLength(saida))}  (legível)   → dist/ e web/public/`);

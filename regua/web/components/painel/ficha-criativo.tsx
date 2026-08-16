@@ -162,7 +162,7 @@ export function FichaCriativo({ c, morte }: { c: Criativo; morte: Morte }) {
                     Retenção do anúncio no feed
                   </p>
                   <div className="flex items-end gap-2">
-                    {([['3s', c.views_3s], ['25%', c.quartis[0]], ['50%', c.quartis[1]],
+                    {([['2s', c.views_3s], ['25%', c.quartis[0]], ['50%', c.quartis[1]],
                        ['75%', c.quartis[2]], ['100%', c.quartis[3]]] as const).map(([rot, v]) => (
                       <div key={rot} className="flex-1 text-center">
                         <div className="flex h-16 w-full items-end">

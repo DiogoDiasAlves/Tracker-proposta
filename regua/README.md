@@ -401,7 +401,7 @@ Honestidade sobre os limites do que foi verificado:
 
 ### 6. Depurar numa página real
 
-`/r.js?dev=1` devolve a versão legível do tracker, com os comentários. E no
+`/r.dev.js` devolve a versão legível do tracker, com os comentários. E no
 console:
 
 ```js

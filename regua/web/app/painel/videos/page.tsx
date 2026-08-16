@@ -1,16 +1,23 @@
-import { ativos, facetas, videos, siteKey } from '@/lib/dados';
+import { ativos, facetas, videos, origensDoAtivo, siteKey, type FiltrosOrigem } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, AindaSemColeta } from '@/components/ui/estados';
 import { PillFiltro } from '@/components/ui/pill-filtro';
 import { SeletorAtivo } from '@/components/ui/seletor-ativo';
 import { CurvaVideo } from '@/components/graficos/curva-video';
+import { CurvaConversaoVideo } from '@/components/graficos/curva-conversao-video';
 
 export const metadata = { title: 'Vídeos — Régua' };
 
 const nf = (n: number, d = 1) => n.toFixed(d).replace('.', ',');
+const compacto = (n: number) => n.toLocaleString('pt-BR');
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
-type Props = { searchParams: Promise<{ pagina?: string; versao?: string; disp?: string }> };
+type Props = {
+  searchParams: Promise<{
+    pagina?: string; versao?: string; disp?: string;
+    origem?: string; pais?: string; so?: string; nav?: string;
+  }>;
+};
 
 export default async function Videos({ searchParams }: Props) {
   const sp = await searchParams;
@@ -57,7 +64,27 @@ export default async function Videos({ searchParams }: Props) {
 
   const alvo = comVideo.find(v => v.key === sp.pagina) ?? comVideo[0];
   const f = await facetas(conta.id, alvo.key);
-  const v = alvo.dados.videos[0];
+  const opcoesOrigem = await origensDoAtivo(conta.id, alvo.key);
+
+  // Só entra no filtro o que existe de fato — opção fantasma não é filtro,
+  // é confusão. Mesma regra que já vale para versão/dispositivo.
+  const filtros: FiltrosOrigem = {};
+  if (sp.origem && opcoesOrigem.origens.includes(sp.origem)) filtros.origem = sp.origem;
+  if (sp.pais && opcoesOrigem.paises.includes(sp.pais)) filtros.pais = sp.pais;
+  if (sp.so && opcoesOrigem.sos.includes(sp.so)) filtros.so = sp.so;
+  if (sp.nav && opcoesOrigem.navegadores.includes(sp.nav)) filtros.navegador = sp.nav;
+
+  const filtrado = Object.keys(filtros).length
+    ? await videos(conta.id, alvo.key, alvo.versao, alvo.disp, filtros)
+    : alvo.dados;
+  const dados = filtrado ?? alvo.dados;
+  const v = dados.videos[0];
+
+  const pillOrigem = (param: string, rotulo: string, opcoesLista: string[], atual?: string) =>
+    opcoesLista.length > 1 && (
+      <PillFiltro param={param} rotulo={rotulo} valor={atual ?? ''}
+                  opcoes={[{ valor: '', texto: 'todos' }, ...opcoesLista.map(x => ({ valor: x, texto: x }))]} />
+    );
 
   return (
     <div className="space-y-5">
@@ -70,8 +97,12 @@ export default async function Videos({ searchParams }: Props) {
             Onde param de assistir
           </h1>
           <p className="mt-2 text-[13px] text-muted">
-            <span className="font-mono text-ink">{v.video}</span> · {v.tipo} · {mmss(v.duracao)} ·{' '}
-            {v.sessoes_com_play.toLocaleString('pt-BR')} sessões com play
+            {v ? (
+              <>
+                <span className="font-mono text-ink">{v.video}</span> · {v.tipo} · {mmss(v.duracao)} ·{' '}
+                {compacto(v.sessoes_com_play)} sessões com play
+              </>
+            ) : 'sem sessão para esse filtro'}
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
@@ -88,6 +119,19 @@ export default async function Videos({ searchParams }: Props) {
         </div>
       </header>
 
+      <div className="flex flex-wrap items-end gap-3">
+        {pillOrigem('origem', 'Origem', opcoesOrigem.origens, filtros.origem)}
+        {pillOrigem('pais', 'País', opcoesOrigem.paises, filtros.pais)}
+        {pillOrigem('so', 'Sistema', opcoesOrigem.sos, filtros.so)}
+        {pillOrigem('nav', 'Navegador', opcoesOrigem.navegadores, filtros.navegador)}
+      </div>
+
+      {!v ? (
+        <div className="rounded-xl border border-warn/25 bg-warn/[.06] px-4 py-3 text-[12.5px] leading-relaxed text-warn">
+          Nenhuma sessão bate com essa combinação de filtros. Tente afrouxar um deles.
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Stat rotulo="Retenção no pitch"
               valor={v.retencao_pitch != null ? `${nf(v.retencao_pitch)}%` : '—'}
@@ -104,6 +148,16 @@ export default async function Videos({ searchParams }: Props) {
               alerta={v.autoplay_pct > 50} />
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat rotulo="Plays" valor={compacto(v.plays_total)}
+              nota={`${compacto(v.sessoes_com_play)} plays únicos`} />
+        <Stat rotulo="Taxa de conversão" valor={`${nf(dados.taxa_conversao)}%`}
+              nota={`${compacto(dados.conversoes)} conversão(ões) de ${compacto(dados.sessoes)} sessões`} />
+        <Stat rotulo="Cliques no botão" valor={compacto(dados.cliques_botao)}
+              nota={`${nf(dados.taxa_clique)}% das sessões clicaram`} />
+        <Stat rotulo="Retenção final" valor={`${nf(v.retencao_final)}%`}
+              nota={`${nf(v.plays_por_sessao, 1)} plays/sessão · ${nf(v.mudo_pct, 0)}% mudo`} />
+      </div>
       {v.sessoes_com_play < 300 && (
         <div className="flex items-start gap-3 rounded-xl border border-danger/25 bg-danger/[.07] px-4 py-3 text-[12.5px] leading-relaxed text-danger">
           <span className="mt-0.5">▲</span>
@@ -128,8 +182,19 @@ export default async function Videos({ searchParams }: Props) {
           <h2 className="text-[13px] uppercase tracking-wider text-muted">Curva de retenção</h2>
           <span className="text-[11px] text-faint">% das sessões ainda assistindo em cada segundo</span>
         </div>
-        <CurvaVideo curva={v.curva} duracao={v.duracao} pitch={v.pitch} quedaAbrupta={v.queda_abrupta} />
+        <CurvaVideo curva={v.curva} duracao={v.duracao} pitch={v.pitch}
+                    quedaAbrupta={v.queda_abrupta} preview={v.preview} />
       </section>
+
+      {dados.conversoes > 0 && (
+        <section className="card p-5">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-[13px] uppercase tracking-wider text-muted">Conversão ao longo do vídeo</h2>
+            <span className="text-[11px] text-faint">a métrica que mais decide, segundo a VTurb</span>
+          </div>
+          <CurvaConversaoVideo curva={v.curva} duracao={v.duracao} />
+        </section>
+      )}
 
       <section className="card p-5">
         <h2 className="mb-3 text-[13px] uppercase tracking-wider text-muted">Leitura</h2>
@@ -160,9 +225,12 @@ export default async function Videos({ searchParams }: Props) {
           )}
         </div>
       </section>
+      </>
+      )}
     </div>
   );
 }
+
 
 function Stat({ rotulo, valor, nota, destaque, alerta }: {
   rotulo: string; valor: string; nota: string; destaque?: boolean; alerta?: boolean;

@@ -1,7 +1,7 @@
 import 'server-only';
 import { pool, listAssets, facets, chavesParecidas } from '@regua/db';
 import { compute, comparison, resumoAsset, evolucaoDiaria, mudancasSemVersao } from '@regua/db/metrics';
-import { metricasVideo } from '@regua/db/video';
+import { metricasVideo, origensVisitante } from '@regua/db/video';
 import { metricasQuiz, respostasPorLead } from '@regua/db/quiz';
 
 /* Pool único por processo. Em dev o Next recarrega o módulo a cada mudança,
@@ -66,6 +66,22 @@ export const facetas = (accountId: number, key: string) =>
 export const leitura = (accountId: number, key: string, version: string, device: string) =>
   compute(db, accountId, key, version, device) as Promise<Leitura | null>;
 
+/* Pra tela de Instalação saber, ao vivo, se o script já mandou alguma coisa
+   — sem isso quem instala fica sem saber se deu certo até navegar pra outra
+   tela e torcer. `desde` é o instante em que a pessoa abriu a tela: sessão
+   antiga da conta não conta como confirmação de que ISSO que ela acabou de
+   colar está funcionando. */
+export async function sessaoRecente(accountId: number, desde: string) {
+  const { rows } = await db.query(
+    `SELECT a.key, a.kind, s.device, s.started_at
+     FROM sessions s JOIN assets a ON a.id = s.asset_id
+     WHERE s.account_id = $1 AND s.started_at > $2
+     ORDER BY s.started_at DESC LIMIT 1`,
+    [accountId, desde]
+  );
+  return rows[0] as { key: string; kind: string; device: string; started_at: string } | undefined;
+}
+
 export type ComparacaoVersoes = {
   a: Leitura; b: Leitura; enough: boolean; caveat: string;
   diff: {
@@ -89,16 +105,23 @@ export type Resumo = {
 export const resumo = (accountId: number, key: string) =>
   resumoAsset(db, accountId, key) as Promise<Resumo | null>;
 
-export type CurvaPonto = { s: number; ret: number; rev: number; conv: number };
+export type CurvaPonto = { s: number; ret: number; rev: number; conv: number; aud: number };
+export type PreviewVideo =
+  | { tipo: 'youtube'; id: string; embed: string; thumb: string }
+  | { tipo: 'vimeo'; id: string; embed: string }
+  | { tipo: 'html5'; url: string };
 export type Video = {
-  video: string; tipo: string; duracao: number;
+  video: string; tipo: string; duracao: number; preview: PreviewVideo | null;
   play_rate: number; sessoes_com_play: number; sessoes_medidas: number; sessoes_parciais: number;
-  plays_por_sessao: number; autoplay_pct: number; mudo_pct: number;
+  plays_total: number; plays_por_sessao: number; autoplay_pct: number; mudo_pct: number;
   engajamento: number; assistido_mediano_s: number; assistido_mediano_pct: number;
   retencao_final: number; pitch: number | null; retencao_pitch: number | null;
   queda_abrupta: { de: number; ate: number; queda: number } | null;
   curva: CurvaPonto[];
 };
+
+export type FiltrosOrigem = { origem?: string; pais?: string; so?: string; navegador?: string };
+export type OpcoesOrigem = { origens: string[]; paises: string[]; sos: string[]; navegadores: string[] };
 
 export type Rotulos = Record<string, Record<string, string>>;
 
@@ -119,9 +142,17 @@ export type LeituraQuiz = {
   }[];
 };
 
-export const videos = (accountId: number, key: string, version: string, device: string) =>
-  metricasVideo(db, accountId, key, version, device) as
-    Promise<{ sessoes: number; conversoes: number; videos: Video[] } | null>;
+export const videos = (
+  accountId: number, key: string, version: string, device: string, filtros: FiltrosOrigem = {}
+) =>
+  metricasVideo(db, accountId, key, version, device, filtros) as
+    Promise<{
+      sessoes: number; conversoes: number; taxa_conversao: number;
+      cliques_botao: number; taxa_clique: number; videos: Video[];
+    } | null>;
+
+export const origensDoAtivo = (accountId: number, key: string) =>
+  origensVisitante(db, accountId, key) as Promise<OpcoesOrigem>;
 
 export const quiz = (accountId: number, key: string, version: string, device: string) =>
   metricasQuiz(db, accountId, key, version, device) as Promise<LeituraQuiz | null>;

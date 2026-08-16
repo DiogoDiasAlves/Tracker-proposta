@@ -1,6 +1,8 @@
 import 'server-only';
+import geoip from 'geoip-lite';
 import { db } from './dados';
 import { ingest, convert } from '@regua/db/ingest';
+import { sistemaOperacional, navegador } from './ua';
 
 /* ── limite de vazão ──────────────────────────────────────────────────
    /e aceita qualquer origem — é o que um tracker instalado em domínio de
@@ -48,5 +50,19 @@ export const CORS = {
   'access-control-allow-headers': 'content-type',
 } as const;
 
-export const coletar = (raw: string) => ingest(db, raw);
+/* País, sistema operacional e navegador vêm do que toda requisição HTTP já
+   carrega — nada disso pede mudança no tracker. O IP é usado só para achar
+   o país e descartado no mesmo instante: a mesma promessa de não gravar IP
+   que já vale para o limitador de vazão acima. */
+function origemVisitante(req: Request) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim();
+  const ua = req.headers.get('user-agent') ?? '';
+  return {
+    pais: ip ? (geoip.lookup(ip)?.country ?? null) : null,
+    so: sistemaOperacional(ua),
+    navegador: navegador(ua),
+  };
+}
+
+export const coletar = (raw: string, req: Request) => ingest(db, raw, origemVisitante(req));
 export const converter = (sid: string | null) => convert(db, sid);

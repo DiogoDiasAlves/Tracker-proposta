@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   }
   try {
     const raw = await req.text();
-    await coletar(raw);
+    await coletar(raw, req);
     return new Response(null, { status: 204, headers: CORS });
   } catch (e) {
     return new Response(JSON.stringify({ erro: (e as Error).message }),

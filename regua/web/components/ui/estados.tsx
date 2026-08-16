@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { Codigo } from './codigo';
+
+export { Codigo };
 
 export function Cabecalho({
   sobre, titulo, descricao, acao,
@@ -72,19 +75,3 @@ export function AindaSemColeta({
   );
 }
 
-/* Realce simples: atributo em verde, resto apagado. Sem parser — os trechos
-   são curtos e um destacador de sintaxe inteiro não se paga aqui. */
-export function Codigo({ children }: { children: string }) {
-  const partes = children.split(/(data-[a-z-]+|<\/?[a-z][a-z0-9]*)/g);
-  return (
-    <pre className="overflow-x-auto rounded-xl border border-line bg-bg p-4 font-mono text-[12px] leading-relaxed text-muted">
-      {partes.map((p, i) =>
-        p.startsWith('data-')
-          ? <span key={i} className="text-accent">{p}</span>
-          : /^<\/?[a-z]/.test(p)
-            ? <span key={i} className="text-ink">{p}</span>
-            : <span key={i}>{p}</span>
-      )}
-    </pre>
-  );
-}

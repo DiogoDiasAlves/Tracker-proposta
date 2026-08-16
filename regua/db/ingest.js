@@ -19,6 +19,10 @@ function clampInt(v, lo, hi) {
   return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : lo;
 }
 
+/** URL do arquivo de vídeo, só para permitir o painel mostrar o vídeo de
+ *  verdade. Só http(s) — blob:/data: não sobrevivem fora da aba de origem. */
+const urlVideo = v => (typeof v === 'string' && /^https?:\/\//i.test(v) ? v.slice(0, 500) : null);
+
 /** Meta manda o id do anúncio em utm_content quando as URL tags usam
  *  {{ad.id}}. É a chave que amarra gasto de criativo a comportamento. */
 const adIdDe = utmContent => (/^\d{6,}$/.test(utmContent || '') ? utmContent : null);
@@ -36,7 +40,7 @@ function faixas(v) {
   return out;
 }
 
-export async function ingest(db, raw) {
+export async function ingest(db, raw, origem = {}) {
   if (raw.length > MAX_BODY) throw new Error('payload grande demais');
 
   let p;
@@ -81,12 +85,14 @@ export async function ingest(db, raw) {
       sessionId = (await c.query(`
         INSERT INTO sessions (account_id, asset_id, sid, version, device,
           started_at, last_seen_at, seq,
-          utm_source, utm_medium, utm_campaign, utm_content, utm_term, ad_id, referrer_host)
-        VALUES ($1,$2,$3,$4,$5, now(), now(), $6,$7,$8,$9,$10,$11,$12,$13)
+          utm_source, utm_medium, utm_campaign, utm_content, utm_term, ad_id, referrer_host,
+          pais, sistema_operacional, navegador)
+        VALUES ($1,$2,$3,$4,$5, now(), now(), $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
         RETURNING id`,
         [accountId, aid, sid, version, device, seq,
          text(st.us), text(st.um), text(st.uc), text(st.uo), text(st.ut),
-         adIdDe(st.uo), text(st.rf)]
+         adIdDe(st.uo), text(st.rf),
+         text(origem.pais, 8), text(origem.so, 32), text(origem.navegador, 32)]
       )).rows[0].id;
     } else {
       sessionId = found.id;
@@ -135,17 +141,19 @@ export async function ingest(db, raw) {
         if (!nome) continue;
         await c.query(`
           INSERT INTO vsl_playback (session_id, video, tipo, duracao, plays, max_pos,
-                                    faixas, revistas, autoplay, mudo, pitch, parcial)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                                    faixas, revistas, autoplay, mudo, pitch, parcial, url)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
           ON CONFLICT (session_id, video) DO UPDATE SET
             tipo = EXCLUDED.tipo, duracao = EXCLUDED.duracao, plays = EXCLUDED.plays,
             max_pos = EXCLUDED.max_pos, faixas = EXCLUDED.faixas,
             revistas = EXCLUDED.revistas, autoplay = EXCLUDED.autoplay,
-            mudo = EXCLUDED.mudo, pitch = EXCLUDED.pitch, parcial = EXCLUDED.parcial`,
+            mudo = EXCLUDED.mudo, pitch = EXCLUDED.pitch, parcial = EXCLUDED.parcial,
+            url = COALESCE(EXCLUDED.url, vsl_playback.url)`,
           [sessionId, nome, label(v.t), clampInt(v.d, 0, 36000),
            clampInt(v.p, 0, 10000), clampInt(v.m, 0, 36000),
            JSON.stringify(faixas(v.r)), JSON.stringify(faixas(v.rr)),
-           !!v.a, !!v.mu, v.pi == null ? null : clampInt(v.pi, 0, 36000), !!v.pa]
+           !!v.a, !!v.mu, v.pi == null ? null : clampInt(v.pi, 0, 36000), !!v.pa,
+           urlVideo(v.u)]
         );
       }
     }

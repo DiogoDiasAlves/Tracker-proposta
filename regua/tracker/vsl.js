@@ -240,6 +240,15 @@ function nomeDe(el, i) {
   return base || ('video-' + (i + 1));
 }
 
+function urlDoVideo(v) {
+  if (v.ad.tipo !== 'html5') return null;   // YouTube/Vimeo já têm id público; VTurb não tem URL própria
+  try {
+    var src = v.el.currentSrc || v.el.src || '';
+    if (/^https?:\/\//i.test(src)) return src.slice(0, 500);
+  } catch (e) {}
+  return null;
+}
+
 function registrar(el, adapter, i) {
   for (var k = 0; k < videos.length; k++) if (videos[k].el === el) return;
   var pitch = el.getAttribute && el.getAttribute('data-vsl-pitch');
@@ -349,6 +358,11 @@ register({
         mu: v.mudo ? 1 : 0,
         pi: v.pitch,
         pa: v.parcial ? 1 : 0,
+        // só para <video> nativo, e só se público (http/https): é o que
+        // permite o painel mostrar o vídeo de verdade em vez de só o nome.
+        // Lido agora, não no registro — currentSrc pode não ter resolvido
+        // ainda quando o vídeo foi descoberto na página.
+        u: urlDoVideo(v),
       });
     }
     return out.length ? { vs: out } : {};

@@ -17,6 +17,10 @@
 /.next/
 /out/
 
+# tracker gerado por ../tracker/build.js (roda no prebuild) — nunca editar à mão
+/public/r.js
+/public/r.dev.js
+
 # production
 /build
 
