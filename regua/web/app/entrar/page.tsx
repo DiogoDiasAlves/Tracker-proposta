@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { entrar, usuarioAtual } from '@/lib/sessao';
+import { usuarioAtual } from '@/lib/sessao';
 import { IconLogo } from '@/components/icons';
 
 export const metadata = { title: 'Entrar — Régua' };
@@ -7,14 +7,6 @@ export const metadata = { title: 'Entrar — Régua' };
 export default async function Entrar({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const sp = await searchParams;
   if (await usuarioAtual()) redirect('/painel');
-
-  async function acao(form: FormData) {
-    'use server';
-    const email = String(form.get('email') ?? '');
-    const senha = String(form.get('senha') ?? '');
-    const id = await entrar(email, senha);
-    redirect(id ? '/painel' : '/entrar?erro=1');
-  }
 
   return (
     <main className="grid min-h-dvh place-items-center px-6">
@@ -27,7 +19,7 @@ export default async function Entrar({ searchParams }: { searchParams: Promise<{
           </div>
         </div>
 
-        <form action={acao} className="card space-y-3 p-6">
+        <form action="/api/entrar" method="post" className="card space-y-3 p-6">
           <label className="block">
             <span className="mb-1.5 block text-[11px] uppercase tracking-wider text-faint">E-mail</span>
             <input name="email" type="email" required autoComplete="email" autoFocus
