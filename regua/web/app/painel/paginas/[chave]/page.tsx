@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { facetas, leitura, comparar, evolucao, mudancasEsquecidas } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { PillFiltro } from '@/components/ui/pill-filtro';
+import { BotaoComConfirmacao } from '@/components/ui/confirmar-acao';
 import { VistaRetencao } from '@/components/painel/vista-retencao';
 import { VistaVersoes } from '@/components/painel/vista-versoes';
 import { LinhaEvolucao } from '@/components/graficos/linha-evolucao';
@@ -63,6 +64,16 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
                                  ...f.versions.filter(v => v !== versao)
                                    .map(v => ({ valor: v, texto: `v${v}` }))]} />
           )}
+          <div className="h-6 w-px bg-line" />
+          <BotaoComConfirmacao
+            titulo="Zerar métricas desta página?"
+            descricao={`Apaga todas as sessões coletadas até agora de "${dados.page}" — sessões, blocos, cliques e vídeo. Não afeta nenhuma outra página da sua conta. A coleta continua normal depois, começando do zero. Essa ação não pode ser desfeita.`}
+            textoConfirmar="Sim, zerar"
+            formAction="/api/ativos/zerar"
+            campos={{ chave: alvo }}
+          >
+            Zerar métricas
+          </BotaoComConfirmacao>
         </div>
       </header>
 

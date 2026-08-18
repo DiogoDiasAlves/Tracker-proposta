@@ -114,6 +114,26 @@ export async function listAssets(db, accountId) {
   return rows;
 }
 
+/* Apaga o histórico de sessões de UM asset — o botão "zerar métricas" que o
+   cliente beta pediu depois de poluir o dashboard com teste. O asset em si
+   (chave, tipo) continua existindo: o script aponta pro mesmo lugar e a
+   coleta recomeça do zero, sem precisar reinstalar nada.
+
+   step_stats, cta_clicks, vsl_playback e quiz_answers têm ON DELETE CASCADE
+   em sessions — apagar aqui já limpa tudo. quiz_labels fica de fora de
+   propósito: é o dicionário de copy das opções do quiz (texto do botão),
+   não dado de visitante — continua válido pro próximo lote de sessões. */
+export async function zerarMetricas(db, accountId, key) {
+  const { rows } = await db.query(
+    'SELECT id FROM assets WHERE account_id = $1 AND key = $2', [accountId, key]
+  );
+  if (!rows[0]) return 0;
+  const r = await db.query(
+    'DELETE FROM sessions WHERE account_id = $1 AND asset_id = $2', [accountId, rows[0].id]
+  );
+  return r.rowCount;
+}
+
 export async function facets(db, accountId, key) {
   const { rows } = await db.query(`
     SELECT s.version, s.device, COUNT(*)::int AS n

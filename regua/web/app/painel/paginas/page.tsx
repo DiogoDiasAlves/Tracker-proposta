@@ -8,14 +8,23 @@ export const metadata = { title: 'Páginas — Régua' };
 
 const nf = (n: number, d = 1) => n.toFixed(d).replace('.', ',');
 
-export default async function Paginas() {
+export default async function Paginas({ searchParams }: { searchParams: Promise<{ zerado?: string }> }) {
+  const { zerado } = await searchParams;
   const { conta } = await exigirConta();
   const lista = (await ativos(conta.id)).filter(a => a.kind === 'page' && a.sessions > 0);
+
+  const avisoZerado = zerado && (
+    <div className="rounded-xl border border-accent/25 bg-accent/[.06] px-4 py-3 text-[12.5px] leading-relaxed text-accent">
+      Métricas de <span className="font-mono">{zerado}</span> foram zeradas. Ela volta a aparecer
+      aqui assim que a primeira sessão nova chegar.
+    </div>
+  );
 
   if (!lista.length) {
     return (
       <div className="max-w-4xl space-y-5">
         <Cabecalho sobre="Páginas de vendas" titulo="Nenhuma página em coleta" />
+        {avisoZerado}
         <AindaSemColeta
           titulo="A página aparece aqui sozinha na primeira sessão"
           porque="Não há cadastro de oferta a fazer. Nomeie as seções, cole o script e rode tráfego como sempre."
@@ -48,6 +57,8 @@ export default async function Paginas() {
         titulo="Páginas de vendas"
         descricao="O gargalo de cada página, no recorte com mais tráfego. Clique para abrir a curva completa."
       />
+
+      {avisoZerado}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {linhas.map(({ a, d, pior, recorte }) => (
