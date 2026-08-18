@@ -87,6 +87,9 @@ function harness(layout, sharedStore, videosFalsos = []) {
     URL, URLSearchParams, Blob: class { constructor() {} },
     MutationObserver: null,
     console,
+    // Todo navegador real expõe window.crypto; o sandbox precisa do mesmo
+    // pra sidNovo() (crypto.randomUUID()) não explodir.
+    crypto: globalThis.crypto,
     fetch: (url, opt) => { sent.push(JSON.parse(opt.body)); return Promise.resolve({ ok: true }); },
   };
   ctx.window = ctx;

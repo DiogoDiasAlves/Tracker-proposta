@@ -81,16 +81,44 @@ export async function accountBySiteKey(db, siteKey) {
   return rows[0]?.account_id ?? null;
 }
 
-/** Cria o asset no primeiro evento. Não há cadastro de oferta a fazer. */
-export async function assetId(db, accountId, key, kind = 'page') {
+/** Cria o asset no primeiro evento. Não há cadastro de oferta a fazer.
+ *  `kind = null` é lote sem sinal (heartbeat) — só garante que a linha
+ *  existe, sem arriscar a classificação já aprendida. */
+export async function assetId(db, accountId, key, kind = null) {
+  if (kind === null) {
+    const { rows } = await db.query(
+      `INSERT INTO assets (account_id, key, kind) VALUES ($1, $2, 'page')
+       ON CONFLICT (account_id, key) DO UPDATE SET key = EXCLUDED.key
+       RETURNING id`,
+      [accountId, key]
+    );
+    return rows[0].id;
+  }
   const { rows } = await db.query(
-    /* Só promove de 'page' para um tipo específico, nunca o contrário: o
-       primeiro lote de um quiz chega antes de qualquer pergunta qualificar,
-       e nasceria como página. Rebaixar depois apagaria a classificação certa. */
+    /* Bloco manda em tudo, sempre — mesmo revertendo de vsl/quiz: se o
+       primeiro lote de uma página com vídeo chegou antes do primeiro bloco
+       qualificar, o asset nasce 'vsl'.
+
+       Uma vez que bloco já foi visto de verdade (existe step_stats), 'page'
+       é definitivo — um lote no meio da reprodução de vídeo, que só carrega
+       vs sem repetir os blocos, não pode derrubar isso de volta pra 'vsl'.
+       Sem esse EXISTS, todo lote "só vídeo" de uma página normal ia
+       reabrir a promoção e a classificação ficaria oscilando pra sempre.
+
+       'page' sem histórico de bloco ainda é só o padrão de quem não
+       mandou nenhum sinal ainda — esse caso continua livre pra virar
+       vsl/quiz no primeiro sinal específico que chegar. */
     `INSERT INTO assets (account_id, key, kind) VALUES ($1, $2, $3)
      ON CONFLICT (account_id, key) DO UPDATE SET
-       kind = CASE WHEN assets.kind = 'page' AND EXCLUDED.kind <> 'page'
-                   THEN EXCLUDED.kind ELSE assets.kind END
+       kind = CASE
+         WHEN EXCLUDED.kind = 'page' THEN 'page'
+         WHEN assets.kind = 'page' AND EXISTS (
+           SELECT 1 FROM step_stats st JOIN sessions se ON se.id = st.session_id
+           WHERE se.asset_id = assets.id
+         ) THEN 'page'
+         WHEN assets.kind = 'page' THEN EXCLUDED.kind
+         ELSE assets.kind
+       END
      RETURNING id`,
     [accountId, key, kind]
   );

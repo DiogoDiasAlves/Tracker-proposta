@@ -66,11 +66,19 @@ export async function ingest(db, raw, origem = {}) {
     /* O tipo do asset vem do que ele MANDA, não de um padrão. Bloco manda em
        tudo: uma página de vendas com vídeo dentro continua sendo página. Sem
        bloco, quiz ganha de vídeo, porque o vídeo costuma ser um pedaço do
-       quiz e não o contrário. */
+       quiz e não o contrário.
+
+       null quando o lote não tem nenhum sinal (ex.: flush de heartbeat) —
+       diferente de 'page', que aqui só sai quando bloco foi visto de
+       verdade. Confundir os dois travava a classificação: se o primeiro
+       lote de uma página chegasse com vídeo antes do primeiro bloco
+       qualificar (comum — o vídeo costuma estar acima da dobra), o asset
+       nascia 'vsl' e ficava assim pra sempre, mesmo depois de todos os
+       blocos passarem a chegar certinho nos lotes seguintes. */
     const tipo = Array.isArray(p.b) && p.b.length ? 'page'
                : p.qz && Array.isArray(p.qz.e) && p.qz.e.length ? 'quiz'
                : Array.isArray(p.vs) && p.vs.length ? 'vsl'
-               : 'page';
+               : null;
 
     const aid = await assetId(c, accountId, assetKey, tipo);
 
