@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ativos, facetas, leitura, siteKey } from '@/lib/dados';
+import { ativos, facetas, leitura, resumo, siteKey } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { Cabecalho, AindaSemColeta } from '@/components/ui/estados';
 import { TEXTO, faixaQueda } from '@/lib/faixas';
@@ -42,12 +42,19 @@ export default async function Paginas({ searchParams }: { searchParams: Promise<
 
   // Uma leitura por página para trazer o gargalo — são poucas páginas por conta,
   // e o número que importa nesta tela é justamente o pior bloco de cada uma.
+  // `resumo` traz acessos e conversão de VERDADE: soma todas as versões e
+  // todos os dispositivos, o mesmo critério que SimilarWeb/GA usam pra
+  // "sessões" — sem isso, sessões (total) e conversão (só do recorte maior)
+  // vinham de bases diferentes, e a conta de "quanto converte" não fechava.
   const linhas = await Promise.all(lista.map(async a => {
     const f = await facetas(conta.id, a.key);
     const maior = f.counts.reduce((x, y) => (y.n > x.n ? y : x), f.counts[0]);
-    const d = await leitura(conta.id, a.key, maior?.version ?? '1', maior?.device ?? 'mobile');
+    const [d, r] = await Promise.all([
+      leitura(conta.id, a.key, maior?.version ?? '1', maior?.device ?? 'mobile'),
+      resumo(conta.id, a.key),
+    ]);
     const pior = d?.steps.find(s => s.step === d.worst) ?? null;
-    return { a, d, pior, recorte: maior };
+    return { a, d, r, pior, recorte: maior };
   }));
 
   return (
@@ -61,14 +68,14 @@ export default async function Paginas({ searchParams }: { searchParams: Promise<
       {avisoZerado}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {linhas.map(({ a, d, pior, recorte }) => (
+        {linhas.map(({ a, d, r, pior, recorte }) => (
           <Link key={a.key} href={`/painel/paginas/${encodeURIComponent(a.key)}`}
                 className="card group p-5 transition hover:border-accent/40">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="truncate font-mono text-[14px] text-ink">{a.key}</h2>
                 <p className="mt-1 text-[11.5px] text-faint">
-                  {d?.steps.length ?? 0} blocos · v{recorte?.version} · {recorte?.device}
+                  {d?.steps.length ?? 0} blocos · gargalo em v{recorte?.version} · {recorte?.device}
                 </p>
               </div>
               {d && !d.enough && (
@@ -78,9 +85,16 @@ export default async function Paginas({ searchParams }: { searchParams: Promise<
               )}
             </div>
 
+            {/* Acessos e conversão somam TODAS as versões e dispositivos —
+                mesmo critério de SimilarWeb/GA. O gargalo abaixo é do
+                recorte com mais tráfego, que pode não ser 100% do total. */}
             <div className="mt-4 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-line bg-line">
-              <Mini rotulo="sessões" valor={a.sessions.toLocaleString('pt-BR')} />
-              <Mini rotulo="conversão" valor={d ? `${nf(d.conversion, 2)}%` : '—'} />
+              <Mini rotulo="acessos" valor={a.sessions.toLocaleString('pt-BR')} />
+              <Mini
+                rotulo="conversão"
+                valor={r ? `${nf(r.conversao, 2)}%` : '—'}
+                nota={r ? `${r.conversoes.toLocaleString('pt-BR')} conversões` : undefined}
+              />
               <Mini
                 rotulo="maior queda"
                 valor={pior ? `${nf(pior.drop ?? 0)}%` : '—'}
@@ -101,13 +115,14 @@ export default async function Paginas({ searchParams }: { searchParams: Promise<
   );
 }
 
-function Mini({ rotulo, valor, cor }: { rotulo: string; valor: string; cor?: string }) {
+function Mini({ rotulo, valor, cor, nota }: { rotulo: string; valor: string; cor?: string; nota?: string }) {
   return (
     <div className="bg-surface p-3">
       <p className="text-[9.5px] uppercase tracking-wider text-faint">{rotulo}</p>
       <p className="mt-1 text-[17px] font-semibold tnum" style={{ color: cor ?? 'var(--color-ink)' }}>
         {valor}
       </p>
+      {nota && <p className="mt-0.5 text-[10px] tnum text-faint">{nota}</p>}
     </div>
   );
 }

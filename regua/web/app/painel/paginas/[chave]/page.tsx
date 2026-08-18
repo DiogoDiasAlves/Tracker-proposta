@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { facetas, leitura, comparar, evolucao, mudancasEsquecidas } from '@/lib/dados';
+import { facetas, leitura, comparar, evolucao, mudancasEsquecidas, resumo } from '@/lib/dados';
 import { exigirConta } from '@/lib/sessao';
 import { PillFiltro } from '@/components/ui/pill-filtro';
 import { BotaoComConfirmacao } from '@/components/ui/confirmar-acao';
@@ -37,6 +37,11 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
   // não de um recorte. Por isso não filtra por versão.
   const linha = (await evolucao(conta.id, alvo, disp)) ?? [];
   const esquecidas = await mudancasEsquecidas(conta.id, alvo, disp);
+
+  // Acessos e conversão de VERDADE — soma toda versão e todo dispositivo,
+  // o mesmo critério que SimilarWeb/GA usam pra "sessões" de uma página.
+  // Diferente do resto desta tela, que é sempre o recorte escolhido acima.
+  const total = await resumo(conta.id, alvo);
 
   return (
     <div className="space-y-5">
@@ -76,6 +81,33 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
           </BotaoComConfirmacao>
         </div>
       </header>
+
+      {total && (
+        <section className="card grid grid-cols-3 divide-x divide-line p-0">
+          <div className="p-4">
+            <p className="text-[10.5px] uppercase tracking-wider text-faint">Acessos totais</p>
+            <p className="mt-1 text-[22px] font-semibold tnum tracking-tight">
+              {total.sessoes.toLocaleString('pt-BR')}
+            </p>
+          </div>
+          <div className="p-4">
+            <p className="text-[10.5px] uppercase tracking-wider text-faint">Conversões</p>
+            <p className="mt-1 text-[22px] font-semibold tnum tracking-tight">
+              {total.conversoes.toLocaleString('pt-BR')}
+            </p>
+          </div>
+          <div className="p-4">
+            <p className="text-[10.5px] uppercase tracking-wider text-faint">Taxa de conversão</p>
+            <p className="mt-1 text-[22px] font-semibold tnum tracking-tight text-accent">
+              {total.conversao.toFixed(2).replace('.', ',')}%
+            </p>
+          </div>
+          <p className="col-span-3 border-t border-line px-4 py-2 text-[11px] text-faint">
+            Soma todas as versões e dispositivos — mesmo critério que SimilarWeb/GA usam pra
+            contar visita. Os números abaixo são só do recorte selecionado (v{versao} · {disp}).
+          </p>
+        </section>
+      )}
 
       {esquecidas.length > 0 && (
         <div className="rounded-xl border border-warn/25 bg-warn/[.06] px-4 py-3.5 text-[12.5px] leading-relaxed text-warn">
