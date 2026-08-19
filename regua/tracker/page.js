@@ -19,28 +19,43 @@ register({
     return !!document.querySelector('[data-block]');
   },
 
+  /* Nunca remove: um bloco que sai do DOM (troca de rota numa SPA, por
+     exemplo — várias telas condicionais de um mesmo funil, cada uma com seus
+     próprios [data-block]) para de acumular tempo sozinho — tick() vê o
+     elemento destacado do documento como invisível — mas o que ele já tinha
+     visto continua no payload. Descartar ao sair do DOM perderia o bloco
+     inteiro de quem navegou mais rápido que o intervalo de flush (10s):
+     antes, comparar só a QUANTIDADE de nós fazia a varredura inteira ser
+     ignorada quando a etapa nova tinha o mesmo total de nós que a anterior
+     (comum numa SPA que só mostra uma etapa de cada vez), então a troca
+     nunca era percebida. Agora a comparação é por identidade (o quê, não
+     quanto).
+
+     Ordem: por padrão é a ordem de descoberta (posição no DOM na primeira
+     vez que o bloco aparece). data-block-order, quando presente, sobrepõe
+     isso — necessário quando o funil atravessa mais de uma página/rota (o
+     script reinicia do zero em cada uma, então a contagem de "descoberta"
+     também reinicia) e o dono da página precisa garantir que os blocos da
+     segunda tela continuem depois dos da primeira em vez de recomeçar do 0. */
   scan: function () {
     var nodes = document.querySelectorAll('[data-block]');
-    if (nodes.length === blocks.length) return;   // nada mudou
-
-    var prev = {};
-    for (var i = 0; i < blocks.length; i++) prev[blocks[i].id] = blocks[i];
-
-    blocks = [];
     for (var j = 0; j < nodes.length; j++) {
       var id = nodes[j].getAttribute('data-block');
-      var old = prev[id];
-      blocks.push({
-        el: nodes[j],
-        id: id,
-        ord: j,
-        run: old ? old.run : 0,          // ms do trecho contínuo atual
-        dwell: old ? old.dwell : 0,      // ms visíveis acumulados
-        entries: old ? old.entries : 0,  // quantas vezes entrou (reentradas)
-        seen: old ? old.seen : false,    // já qualificou alguma vez
-        inRun: old ? old.inRun : false,
-        vis: old ? old.vis : false
-      });
+      var existing = null;
+      for (var k = 0; k < blocks.length; k++) {
+        if (blocks[k].id === id) { existing = blocks[k]; break; }
+      }
+      if (existing) {
+        existing.el = nodes[j];   // pode ter remontado com o mesmo id
+      } else {
+        var ordAttr = Number(nodes[j].getAttribute('data-block-order'));
+        blocks.push({
+          el: nodes[j],
+          id: id,
+          ord: isFinite(ordAttr) && nodes[j].hasAttribute('data-block-order') ? ordAttr : blocks.length,
+          run: 0, dwell: 0, entries: 0, seen: false, inRun: false, vis: false, height: 0
+        });
+      }
     }
   },
 
@@ -52,6 +67,13 @@ register({
       if (v) {
         b.run += dt;
         b.dwell += dt;
+        // Guardada enquanto está de fato renderizado — não lida na hora do
+        // envio, porque numa SPA o elemento pode já ter saído do DOM (trocou
+        // de rota) e getBoundingClientRect() de um nó destacado devolve 0,
+        // o que zeraria "tempo por 100px" de qualquer bloco de uma etapa
+        // anterior que ainda não tinha sido enviada.
+        var h = b.el.getBoundingClientRect().height;
+        if (h > 0) b.height = Math.round(h);
         if (b.run >= QUALIFY && !b.inRun) {
           b.inRun = true;
           b.seen = true;
@@ -68,7 +90,7 @@ register({
     var out = {};
     for (var i = 0; i < blocks.length; i++) {
       var b = blocks[i];
-      if (b.seen || b.dwell) out[b.id] = { t: b.dwell, e: b.entries, s: b.seen ? 1 : 0 };
+      if (b.seen || b.dwell) out[b.id] = { t: b.dwell, e: b.entries, s: b.seen ? 1 : 0, h: b.height };
     }
     return out;
   },
@@ -80,6 +102,7 @@ register({
       blocks[i].dwell = s.t || 0;
       blocks[i].entries = s.e || 0;
       blocks[i].seen = !!s.s;
+      blocks[i].height = s.h || 0;
     }
   },
 
@@ -90,7 +113,7 @@ register({
       if (!b.seen) continue;
       bs.push({
         i: b.id, o: b.ord,
-        h: Math.round(b.el.getBoundingClientRect().height),
+        h: b.height,
         t: b.dwell, e: b.entries
       });
     }

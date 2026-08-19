@@ -61,30 +61,35 @@ register({
     return !!document.querySelector('[data-quiz-step]');
   },
 
+  /* Nunca remove: mesma razão de page.js. Um quiz de uma pergunta por tela
+     numa SPA (React/Vue condicionais, não CSS toggle) desmonta a pergunta
+     anterior ao montar a próxima — o total de nós fica igual (1 e 1) e a
+     comparação antiga por QUANTIDADE nunca percebia a troca, então a
+     pergunta nova nunca era registrada. Agora compara por identidade (o id
+     da pergunta), preservando o número explícito de data-quiz-step como
+     ordem — é o que permite ao dono do quiz controlar a ordem lógica mesmo
+     quando ela não bate com a ordem de descoberta no DOM (ramificação). */
   scan: function () {
     rotulos = null;   // o DOM mudou; relê na próxima montagem do payload
     var nodes = document.querySelectorAll('[data-quiz-step]');
-    if (nodes.length === perguntas.length) return;
-
-    var antes = {};
-    for (var i = 0; i < perguntas.length; i++) antes[perguntas[i].id] = perguntas[i];
-
-    perguntas = [];
     for (var j = 0; j < nodes.length; j++) {
       var el = nodes[j];
       var id = el.getAttribute('data-quiz-question') || el.getAttribute('data-quiz-step');
-      var v = antes[id];
-      perguntas.push({
-        el: el, id: id,
-        ord: Number(el.getAttribute('data-quiz-step')) || j,
-        run: v ? v.run : 0,
-        dwell: v ? v.dwell : 0,
-        entries: v ? v.entries : 0,
-        seen: v ? v.seen : false,
-        inRun: v ? v.inRun : false,
-        vis: v ? v.vis : false,
-        oferta: el.hasAttribute('data-quiz-offer'),
-      });
+      var existing = null;
+      for (var k = 0; k < perguntas.length; k++) {
+        if (perguntas[k].id === id) { existing = perguntas[k]; break; }
+      }
+      if (existing) {
+        existing.el = el;   // pode ter remontado com o mesmo id
+        existing.oferta = el.hasAttribute('data-quiz-offer');
+      } else {
+        perguntas.push({
+          el: el, id: id,
+          ord: Number(el.getAttribute('data-quiz-step')) || perguntas.length,
+          run: 0, dwell: 0, entries: 0, seen: false, inRun: false, vis: false, height: 0,
+          oferta: el.hasAttribute('data-quiz-offer'),
+        });
+      }
     }
     perguntas.sort(function (a, b) { return a.ord - b.ord; });
   },
@@ -100,6 +105,10 @@ register({
       if (v) {
         p.run += dt;
         p.dwell += dt;
+        // Ver comentário equivalente em page.js: guardada enquanto visível,
+        // não lida na hora do envio (o elemento pode já ter saído do DOM).
+        var h = p.el.getBoundingClientRect().height;
+        if (h > 0) p.height = Math.round(h);
         if (p.run >= QUALIFY && !p.inRun) { p.inRun = true; p.seen = true; p.entries++; }
       } else {
         p.run = 0;
@@ -112,7 +121,7 @@ register({
     var e = {};
     for (var i = 0; i < perguntas.length; i++) {
       var p = perguntas[i];
-      if (p.seen || p.dwell) e[p.id] = { t: p.dwell, e: p.entries, s: p.seen ? 1 : 0 };
+      if (p.seen || p.dwell) e[p.id] = { t: p.dwell, e: p.entries, s: p.seen ? 1 : 0, h: p.height };
     }
     return { e: e, r: respostas, c: concluiu, l: enviouLead };
   },
@@ -127,6 +136,7 @@ register({
       perguntas[i].dwell = g.t || 0;
       perguntas[i].entries = g.e || 0;
       perguntas[i].seen = !!g.s;
+      perguntas[i].height = g.h || 0;
     }
   },
 
@@ -137,7 +147,7 @@ register({
       if (!p.seen) continue;
       var linha = {
         i: p.id, o: p.ord,
-        h: Math.round(p.el.getBoundingClientRect().height),
+        h: p.height,
         t: p.dwell, e: p.entries,
       };
       // data-quiz-offer diz QUAL etapa é a da oferta. Sem isso o painel teria
