@@ -83,11 +83,20 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
       </header>
 
       {total && (
-        <section className="card grid grid-cols-3 divide-x divide-line p-0">
+        <section className="card grid grid-cols-4 divide-x divide-line p-0">
           <div className="p-4">
             <p className="text-[10.5px] uppercase tracking-wider text-faint">Acessos totais</p>
             <p className="mt-1 text-[22px] font-semibold tnum tracking-tight">
               {total.sessoes.toLocaleString('pt-BR')}
+            </p>
+          </div>
+          <div className="p-4">
+            <p className="text-[10.5px] uppercase tracking-wider text-faint">IC · Início de checkout</p>
+            <p className="mt-1 text-[22px] font-semibold tnum tracking-tight">
+              {total.ic.toLocaleString('pt-BR')}
+            </p>
+            <p className="mt-0.5 text-[11px] text-faint">
+              {total.icTaxa.toFixed(2).replace('.', ',')}% das sessões
             </p>
           </div>
           <div className="p-4">
@@ -102,9 +111,12 @@ export default async function PaginaDetalhe({ params, searchParams }: Props) {
               {total.conversao.toFixed(2).replace('.', ',')}%
             </p>
           </div>
-          <p className="col-span-3 border-t border-line px-4 py-2 text-[11px] text-faint">
+          <p className="col-span-4 border-t border-line px-4 py-2 text-[11px] text-faint">
             Soma todas as versões e dispositivos — mesmo critério que SimilarWeb/GA usam pra
-            contar visita. Os números abaixo são só do recorte selecionado (v{versao} · {disp}).
+            contar visita. IC conta a sessão que clicou no CTA marcado como
+            <span className="font-mono"> data-cta=&quot;checkout-principal&quot;</span> — uma vez por
+            sessão, mesmo com vários cliques. Os números abaixo são só do recorte selecionado
+            (v{versao} · {disp}).
           </p>
         </section>
       )}

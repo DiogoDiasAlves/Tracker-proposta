@@ -99,7 +99,8 @@ export const comparar = (
 
 export type Resumo = {
   key: string; kind: string; sessoes: number; conversoes: number;
-  conversao: number; ctr: number; profundidade: number; tempo_med_s: number; dias: number;
+  conversao: number; ctr: number; ic: number; icTaxa: number;
+  profundidade: number; tempo_med_s: number; dias: number;
 };
 
 export const resumo = (accountId: number, key: string) =>

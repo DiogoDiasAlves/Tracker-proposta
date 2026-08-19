@@ -156,12 +156,25 @@ export async function resumoAsset(db, accountId, key) {
     WHERE s.asset_id = $1
   `, [asset.id])).rows[0];
 
+  // Início de checkout: convenção documentada no README (data-cta=
+  // "checkout-principal") pro botão que de fato abre o pagamento — distinto
+  // de qualquer outro CTA que a página tenha. Uma sessão só conta uma vez,
+  // mesmo clicando várias vezes, pro número comparar de igual pra igual com
+  // "conversões" (que também é por sessão, não por evento).
+  const ic = (await db.query(`
+    SELECT COUNT(DISTINCT c.session_id)::int AS n
+    FROM cta_clicks c JOIN sessions s ON s.id = c.session_id
+    WHERE s.asset_id = $1 AND c.cta = 'checkout-principal'
+  `, [asset.id])).rows[0];
+
   return {
     key, kind: asset.kind,
     sessoes: s.sessoes,
     conversoes: s.conversoes,
     conversao: s.sessoes ? (s.conversoes / s.sessoes) * 100 : 0,
     ctr: s.sessoes ? (c.com_clique / s.sessoes) * 100 : 0,
+    ic: ic.n,
+    icTaxa: s.sessoes ? (ic.n / s.sessoes) * 100 : 0,
     profundidade: p.profundidade,
     tempo_med_s: p.tempo_med / 1000,
     dias: Math.max(1, Math.ceil((s.fim - s.inicio) / 86400000)),
